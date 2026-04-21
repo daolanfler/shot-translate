@@ -23,12 +23,39 @@ function normalizeRect(start: Point, end: Point): Rect {
 
 export function CaptureOverlay({ displayId }: { displayId: number }) {
   const [source, setSource] = useState<CaptureSourcePayload | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
   const [dragStart, setDragStart] = useState<Point | null>(null);
   const [dragEnd, setDragEnd] = useState<Point | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    window.shotTranslate.getCaptureSource(displayId).then(setSource);
+    let mounted = true;
+
+    window.shotTranslate
+      .getCaptureSource(displayId)
+      .then((nextSource) => {
+        if (!mounted) {
+          return;
+        }
+
+        if (!nextSource.dataUrl) {
+          setErrorMessage("Failed to capture this display. Press Esc to cancel.");
+          return;
+        }
+
+        setSource(nextSource);
+      })
+      .catch((error: unknown) => {
+        if (!mounted) {
+          return;
+        }
+
+        setErrorMessage(
+          error instanceof Error
+            ? `Failed to capture this display: ${error.message}`
+            : "Failed to capture this display. Press Esc to cancel."
+        );
+      });
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -37,7 +64,10 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
     };
 
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      mounted = false;
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [displayId]);
 
   async function submitSelection(rect: Rect) {
@@ -85,13 +115,18 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
   }
 
   const rect = dragStart && dragEnd ? normalizeRect(dragStart, dragEnd) : null;
+  const isReady = Boolean(source && !errorMessage);
 
   return (
     <div
       ref={containerRef}
-      className="capture-root"
+      className={isReady ? "capture-root capture-root-ready" : "capture-root"}
       style={source ? { backgroundImage: `url(${source.dataUrl})` } : undefined}
       onMouseDown={(event) => {
+        if (!isReady) {
+          return;
+        }
+
         setDragStart({ x: event.clientX, y: event.clientY });
         setDragEnd({ x: event.clientX, y: event.clientY });
       }}
@@ -113,10 +148,17 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         await submitSelection(nextRect);
       }}
     >
-      <div className="capture-hud">
-        <strong>Drag to select a region</strong>
-        <span>Press Esc to cancel</span>
-      </div>
+      {isReady ? (
+        <div className="capture-hud">
+          <strong>Drag to select a region</strong>
+          <span>Press Esc to cancel</span>
+        </div>
+      ) : (
+        <div className="capture-state-panel">
+          <strong>{errorMessage ? "Capture failed" : "Preparing screenshot..."}</strong>
+          <span>{errorMessage || "Press Esc to cancel if this takes too long."}</span>
+        </div>
+      )}
       {rect ? (
         <div
           className="capture-selection"
@@ -131,4 +173,3 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
     </div>
   );
 }
-

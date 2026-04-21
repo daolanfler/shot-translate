@@ -34,9 +34,10 @@ let captureInProgress = false;
 const windowContexts = new Map<number, WindowContext>();
 
 function setWindowContext(window: BrowserWindow, context: WindowContext) {
-  windowContexts.set(window.webContents.id, context);
+  const webContentsId = window.webContents.id;
+  windowContexts.set(webContentsId, context);
   window.on("closed", () => {
-    windowContexts.delete(window.webContents.id);
+    windowContexts.delete(webContentsId);
   });
 }
 

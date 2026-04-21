@@ -1,4 +1,4 @@
-import { contextBridge, desktopCapturer, ipcRenderer, screen } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 import type {
   AppEvent,
   AppSettings,
@@ -21,34 +21,8 @@ const api = {
   clearHistory: () => ipcRenderer.invoke("history:clear") as Promise<HistoryItem[]>,
   retryHistoryItem: (id: string) => ipcRenderer.invoke("history:retry", id) as Promise<HistoryItem | null>,
   startCapture: () => ipcRenderer.invoke("capture:start") as Promise<void>,
-  getCaptureSource: async (displayId: number): Promise<CaptureSourcePayload> => {
-    const display = screen.getAllDisplays().find((item) => item.id === displayId);
-
-    if (!display) {
-      return ipcRenderer.invoke("capture:source", displayId) as Promise<CaptureSourcePayload>;
-    }
-
-    const sources = await desktopCapturer.getSources({
-      types: ["screen"],
-      thumbnailSize: {
-        width: Math.floor(display.bounds.width * display.scaleFactor),
-        height: Math.floor(display.bounds.height * display.scaleFactor)
-      }
-    });
-    const source = sources.find((item) => item.display_id === String(displayId));
-
-    if (!source) {
-      return ipcRenderer.invoke("capture:source", displayId) as Promise<CaptureSourcePayload>;
-    }
-
-    return {
-      displayId,
-      displayLabel: display.label || `Display ${displayId}`,
-      dataUrl: source.thumbnail.toDataURL(),
-      width: source.thumbnail.getSize().width,
-      height: source.thumbnail.getSize().height
-    };
-  },
+  getCaptureSource: (displayId: number) =>
+    ipcRenderer.invoke("capture:source", displayId) as Promise<CaptureSourcePayload>,
   submitCapture: (payload: CaptureSubmitPayload) =>
     ipcRenderer.invoke("capture:submit", payload) as Promise<boolean>,
   cancelCapture: () => ipcRenderer.invoke("capture:cancel") as Promise<boolean>,
