@@ -14,6 +14,7 @@ export interface AppSettings {
   apiProvider: ApiProvider;
   apiBaseUrl: string;
   apiKey: string;
+  apiProxyUrl: string;
   model: string;
   launchOnStartup: boolean;
 }
@@ -77,4 +78,3 @@ export interface AppEvent {
     message?: string;
   };
 }
-

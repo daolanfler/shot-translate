@@ -31,6 +31,7 @@ let mainWindow: BrowserWindow | null = null;
 let resultWindow: BrowserWindow | null = null;
 let captureWindows: BrowserWindow[] = [];
 let captureInProgress = false;
+let workflowInProgress = false;
 const windowContexts = new Map<number, WindowContext>();
 
 function setWindowContext(window: BrowserWindow, context: WindowContext) {
@@ -222,15 +223,18 @@ async function processCaptureResult(imageDataUrl: string) {
     broadcast({ type: "history-updated" });
     openResultWindow(failed ?? item);
   } finally {
+    workflowInProgress = false;
     updateWorkflowStatus(false);
   }
 }
 
 async function startCaptureFlow() {
-  if (captureInProgress) {
+  if (workflowInProgress || captureInProgress) {
+    updateWorkflowStatus(true, "Finish the current OCR/translation before starting another capture");
     return;
   }
 
+  workflowInProgress = true;
   captureInProgress = true;
   updateWorkflowStatus(true, "Select an area to capture");
   const displays = screen.getAllDisplays();
@@ -327,6 +331,7 @@ function installIpcHandlers() {
   });
   ipcMain.handle("capture:cancel", () => {
     closeCaptureWindows();
+    workflowInProgress = false;
     updateWorkflowStatus(false);
     return true;
   });

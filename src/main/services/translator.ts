@@ -1,4 +1,5 @@
 import type { AppSettings, TranslationResult } from "../../shared/types";
+import { ProxyAgent } from "undici";
 
 interface OpenAiCompatibleResponse {
   choices?: Array<{
@@ -42,12 +43,14 @@ export async function translateText(
   }
 
   const startedAt = Date.now();
-  const response = await fetch(`${settings.apiBaseUrl}/chat/completions`, {
+  const proxyUrl = settings.apiProxyUrl.trim();
+  const requestInit: RequestInit & { dispatcher?: ProxyAgent } = {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${settings.apiKey}`
     },
+    signal: AbortSignal.timeout(45_000),
     body: JSON.stringify({
       model: settings.model,
       temperature: 0.2,
@@ -63,7 +66,26 @@ export async function translateText(
         }
       ]
     })
-  });
+  };
+
+  if (proxyUrl) {
+    requestInit.dispatcher = new ProxyAgent(proxyUrl);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${settings.apiBaseUrl}/chat/completions`, requestInit);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown network error";
+    const cause =
+      error instanceof Error && "cause" in error && error.cause
+        ? ` Cause: ${String(error.cause)}`
+        : "";
+    const proxyHint = proxyUrl
+      ? ` Proxy: ${proxyUrl}.`
+      : " If your network requires a proxy, configure HTTP proxy in Settings.";
+    throw new Error(`Translation network request failed: ${message}.${cause}${proxyHint}`);
+  }
 
   if (!response.ok) {
     const detail = await response.text();
@@ -89,4 +111,3 @@ export async function translateText(
     elapsedMs: Date.now() - startedAt
   };
 }
-

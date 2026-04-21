@@ -157,6 +157,15 @@ export function MainShell() {
                   onBlur={(event) => void saveSettings({ apiKey: event.target.value })}
                 />
               </label>
+              <label className="field">
+                <span>HTTP proxy optional</span>
+                <input
+                  value={settings.apiProxyUrl}
+                  placeholder="http://127.0.0.1:7890"
+                  onChange={(event) => setSettings({ ...settings, apiProxyUrl: event.target.value })}
+                  onBlur={(event) => void saveSettings({ apiProxyUrl: event.target.value })}
+                />
+              </label>
             </section>
 
             <section className="card">
@@ -223,4 +232,3 @@ export function MainShell() {
     </div>
   );
 }
-

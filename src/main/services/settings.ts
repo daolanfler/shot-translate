@@ -10,6 +10,7 @@ export const defaultSettings: AppSettings = {
   apiProvider: "openai-compatible",
   apiBaseUrl: "https://api.openai.com/v1",
   apiKey: "",
+  apiProxyUrl: "",
   model: "gpt-4.1-mini",
   launchOnStartup: false
 };
@@ -40,4 +41,3 @@ export function updateSettings(patch: Partial<AppSettings>): AppSettings {
   writeJsonFile(SETTINGS_FILE, cachedSettings);
   return cachedSettings;
 }
-
