@@ -1,5 +1,5 @@
 import type { AppSettings, TranslationResult } from "../../shared/types";
-import { ProxyAgent } from "undici";
+import { fetch, ProxyAgent } from "undici";
 
 interface OpenAiCompatibleResponse {
   choices?: Array<{
@@ -44,7 +44,7 @@ export async function translateText(
 
   const startedAt = Date.now();
   const proxyUrl = settings.apiProxyUrl.trim();
-  const requestInit: RequestInit & { dispatcher?: ProxyAgent } = {
+  const requestInit: NonNullable<Parameters<typeof fetch>[1]> & { dispatcher?: ProxyAgent } = {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -72,7 +72,7 @@ export async function translateText(
     requestInit.dispatcher = new ProxyAgent(proxyUrl);
   }
 
-  let response: Response;
+  let response: Awaited<ReturnType<typeof fetch>>;
   try {
     response = await fetch(`${settings.apiBaseUrl}/chat/completions`, requestInit);
   } catch (error) {

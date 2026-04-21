@@ -24,6 +24,8 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
     return <div className="result-shell">Loading result...</div>;
   }
 
+  const hasError = item.status === "error" || item.status === "ocr_failed";
+
   return (
     <div className="result-shell">
       <div className="result-card">
@@ -44,7 +46,9 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
 
         <section className="result-section">
           <span>Translation</span>
-          <p>{item.translatedText || item.errorMessage || "No translation available."}</p>
+          <p className={hasError ? "result-error-message" : undefined}>
+            {item.translatedText || item.errorMessage || "No translation available."}
+          </p>
         </section>
 
         {message ? <div className="notice-banner">{message}</div> : null}
@@ -76,4 +80,3 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
     </div>
   );
 }
-

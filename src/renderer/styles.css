@@ -227,6 +227,10 @@ button {
   white-space: pre-wrap;
 }
 
+.result-error-message {
+  color: #ff6b6b;
+}
+
 .history-source {
   color: rgba(248, 243, 231, 0.84);
 }
