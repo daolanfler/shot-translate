@@ -16,11 +16,12 @@ export function createCaptureWindow(
   display: Display,
   onReady: (window: BrowserWindow, context: WindowContext) => void
 ) {
+  const captureBounds = display.workArea;
   const window = new BrowserWindow({
-    x: display.bounds.x,
-    y: display.bounds.y,
-    width: display.bounds.width,
-    height: display.bounds.height,
+    x: captureBounds.x,
+    y: captureBounds.y,
+    width: captureBounds.width,
+    height: captureBounds.height,
     frame: false,
     transparent: true,
     resizable: false,

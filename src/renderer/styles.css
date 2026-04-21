@@ -347,8 +347,9 @@ button:disabled {
 .capture-root {
   position: relative;
   min-height: 100vh;
-  background-size: cover;
-  background-position: center;
+  background-size: 100% 100%;
+  background-position: left top;
+  background-repeat: no-repeat;
   cursor: crosshair;
   background-color: rgba(255, 255, 255, 0.08);
 }

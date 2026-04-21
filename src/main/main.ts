@@ -153,12 +153,27 @@ async function getCaptureSource(displayId: number): Promise<CaptureSourcePayload
     throw new Error(`Could not capture display ${displayId}.`);
   }
 
+  const sourceSize = source.thumbnail.getSize();
+  const scaleX = sourceSize.width / display.bounds.width;
+  const scaleY = sourceSize.height / display.bounds.height;
+  const cropLeft = Math.round((display.workArea.x - display.bounds.x) * scaleX);
+  const cropTop = Math.round((display.workArea.y - display.bounds.y) * scaleY);
+  const cropRight = Math.round((display.workArea.x - display.bounds.x + display.workArea.width) * scaleX);
+  const cropBottom = Math.round((display.workArea.y - display.bounds.y + display.workArea.height) * scaleY);
+  const cropRect = {
+    x: Math.max(0, Math.min(sourceSize.width - 1, cropLeft)),
+    y: Math.max(0, Math.min(sourceSize.height - 1, cropTop)),
+    width: Math.max(1, Math.min(sourceSize.width, cropRight) - Math.max(0, Math.min(sourceSize.width - 1, cropLeft))),
+    height: Math.max(1, Math.min(sourceSize.height, cropBottom) - Math.max(0, Math.min(sourceSize.height - 1, cropTop)))
+  };
+  const thumbnail = source.thumbnail.crop(cropRect);
+
   return {
     displayId,
     displayLabel: display.label || `Display ${displayId}`,
-    dataUrl: source.thumbnail.toDataURL(),
-    width: source.thumbnail.getSize().width,
-    height: source.thumbnail.getSize().height
+    dataUrl: thumbnail.toDataURL(),
+    width: thumbnail.getSize().width,
+    height: thumbnail.getSize().height
   };
 }
 
