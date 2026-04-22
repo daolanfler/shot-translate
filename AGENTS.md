@@ -26,24 +26,6 @@ This file documents project-specific instructions for coding agents working in t
 - Do not use `safe.directory` as a workaround for ownership problems unless explicitly requested by the user.
 - If Git metadata permissions break due to sandbox ownership or ACLs, explain the exact permission issue before changing ACLs.
 
-### Commit Rules
-
-When fixing bugs in this repository, follow this workflow:
-
-1. Make the minimal correct code change.
-2. Run relevant tests or checks when possible.
-3. Summarize the change briefly.
-4. Create a Conventional Commit message.
-5. Stage all changes with `git add -A`.
-6. Commit the change with `git commit -m "<generated message>"`.
-
-Default commit style:
-- fix: for bug fixes
-- feat: for new features
-- refactor: for non-behavioral code changes
-
-Do not leave completed bug fixes uncommitted unless the user explicitly asks for a diff only.
-
 ## Current Known Caveats
 
 - Screenshot capture currently uses Electron `desktopCapturer` thumbnails and a renderer-side crop.
