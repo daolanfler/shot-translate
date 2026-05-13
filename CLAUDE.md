@@ -8,19 +8,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+Package manager is **pnpm** (`packageManager` field pins the version). `.npmrc` sets `node-linker=hoisted` for electron-builder compatibility.
+
 ```bash
-npm run dev          # Start all dev servers concurrently (renderer + main + electron)
-npm run build        # Compile renderer (Vite → dist/) + main process (tsc → dist-electron/)
-npm run dist         # Build and package NSIS installer for Windows
-npm run start        # Launch the already-built app with electron
+pnpm install         # Install dependencies
+pnpm dev             # electron-vite dev — launches main + preload + renderer with HMR
+pnpm build           # electron-vite build — outputs to out/{main,preload,renderer}/
+pnpm typecheck       # tsc -b over both project references (no emit)
+pnpm start           # electron-vite preview — launches the built app
+pnpm dist            # build + electron-builder NSIS installer → release/
 ```
 
-`npm run dev` runs three processes in parallel:
-- `dev:renderer` — Vite dev server on `http://localhost:5173`
-- `dev:main` — `tsc -w` for the Electron main process
-- `dev:electron` — launches Electron once main is compiled
-
-Run `npm run build` after any TypeScript or Electron workflow change before testing the packaged flow.
+Run `pnpm build` after any change to main or preload code before testing the packaged flow.
 
 ## Architecture
 

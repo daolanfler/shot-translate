@@ -5,6 +5,7 @@
   "main": "out/main/index.js",
   "author": "OpenAI Codex",
   "license": "MIT",
+  "packageManager": "pnpm@10.17.1",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
