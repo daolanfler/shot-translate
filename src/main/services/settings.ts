@@ -57,8 +57,8 @@ function encryptApiKeyForStorage(plaintext: string): string {
   return ENCRYPTED_PREFIX + buf.toString("base64");
 }
 
-function persistSettings(plaintext: AppSettings) {
-  writeJsonFile(SETTINGS_FILE, {
+async function persistSettings(plaintext: AppSettings): Promise<void> {
+  await writeJsonFile(SETTINGS_FILE, {
     ...plaintext,
     apiKey: encryptApiKeyForStorage(plaintext.apiKey)
   });
@@ -80,15 +80,18 @@ export function getSettings(): AppSettings {
   };
 
   // One-time migration: re-write with encryption so legacy plaintext stops
-  // sitting on disk after the first read.
+  // sitting on disk. Fire and forget — cached settings are already correct in
+  // memory, and a failed write just means we re-migrate next launch.
   if (isLegacyPlaintext) {
-    persistSettings(cachedSettings);
+    void persistSettings(cachedSettings).catch((error) => {
+      console.error("Failed to migrate legacy plaintext apiKey.", error);
+    });
   }
 
   return cachedSettings;
 }
 
-export function updateSettings(patch: Partial<AppSettings>): AppSettings {
+export async function updateSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
   cachedSettings = {
     ...getSettings(),
     ...patch
@@ -98,6 +101,6 @@ export function updateSettings(patch: Partial<AppSettings>): AppSettings {
     openAtLogin: cachedSettings.launchOnStartup
   });
 
-  persistSettings(cachedSettings);
+  await persistSettings(cachedSettings);
   return cachedSettings;
 }

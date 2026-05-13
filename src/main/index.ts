@@ -326,8 +326,8 @@ function installIpcHandlers() {
   });
 
   ipcMain.handle("settings:get", () => getSettings());
-  ipcMain.handle("settings:update", (_event, patch: Partial<AppSettings>) => {
-    const settings = updateSettings(patch);
+  ipcMain.handle("settings:update", async (_event, patch: Partial<AppSettings>) => {
+    const settings = await updateSettings(patch);
     const registered = registerShortcut(settings);
 
     broadcast({

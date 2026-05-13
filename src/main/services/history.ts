@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { HistoryItem, HistoryStatus } from "../../shared/types";
-import { readJsonFile, writeJsonFileAtomic } from "./store";
+import { readJsonFile, writeJsonFile } from "./store";
 
 const HISTORY_FILE = "history.json";
 const HISTORY_LIMIT = 50;
@@ -20,7 +20,7 @@ function getHistoryState() {
 
 async function persist(snapshot: HistoryItem[]): Promise<void> {
   try {
-    await writeJsonFileAtomic(HISTORY_FILE, snapshot);
+    await writeJsonFile(HISTORY_FILE, snapshot);
   } catch (error) {
     console.error("Failed to persist history.", error);
   }
