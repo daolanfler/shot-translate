@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      electron:
-        specifier: ^35.1.5
-        version: 35.7.5
       react:
         specifier: ^19.1.0
         version: 19.2.6
@@ -36,6 +33,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^5.0.4
         version: 5.2.0(vite@7.3.3(@types/node@24.12.4)(jiti@2.7.0))
+      electron:
+        specifier: ^35.7.5
+        version: 35.7.5
       electron-builder:
         specifier: ^26.0.12
         version: 26.8.1(electron-builder-squirrel-windows@26.8.1)
