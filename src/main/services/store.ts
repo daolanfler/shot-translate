@@ -26,3 +26,16 @@ export function writeJsonFile(name: string, value: unknown) {
   ensureDir(filePath);
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf-8");
 }
+
+/**
+ * Atomically writes JSON: serializes to a sibling tmp file, then renames over
+ * the target. Eliminates the "half-written file gets read" race that
+ * `writeJsonFile` is vulnerable to under rapid concurrent writes.
+ */
+export async function writeJsonFileAtomic(name: string, value: unknown): Promise<void> {
+  const filePath = path.join(app.getPath("userData"), name);
+  ensureDir(filePath);
+  const tmpPath = `${filePath}.${process.pid}.tmp`;
+  await fs.promises.writeFile(tmpPath, JSON.stringify(value, null, 2), "utf-8");
+  await fs.promises.rename(tmpPath, filePath);
+}

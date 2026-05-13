@@ -26,6 +26,7 @@ declare global {
       cancelCapture: () => Promise<boolean>;
       writeClipboardText: (text: string) => Promise<boolean>;
       closeResultWindow: () => Promise<boolean>;
+      reportRendererError: (payload: { message: string; stack?: string }) => Promise<boolean>;
       onAppEvent: (listener: (event: AppEvent) => void) => () => void;
     };
   }

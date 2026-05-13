@@ -18,21 +18,37 @@ import type {
   HistoryItem,
   WindowContext
 } from "../shared/types";
-import { clearHistory, createHistoryItem, getHistoryItem, listHistory, updateHistoryItem } from "./services/history";
+import {
+  clearHistory,
+  createHistoryItem,
+  flushHistory,
+  getHistoryItem,
+  listHistory,
+  updateHistoryItem
+} from "./services/history";
 import { getSettings, updateSettings } from "./services/settings";
-import { recognizeText } from "./services/ocr";
+import { initLogger, log } from "./services/logger";
+import { recognizeText, terminateOcrWorker } from "./services/ocr";
 import { translateText } from "./services/translator";
 import { createCaptureWindow } from "./windows/captureWindow";
 import { createMainWindow } from "./windows/mainWindow";
 import { createResultWindow } from "./windows/resultWindow";
 
+initLogger();
+
+type WorkflowState = "idle" | "capturing" | "processing";
+
 let tray: Tray | null = null;
 let mainWindow: BrowserWindow | null = null;
 let resultWindow: BrowserWindow | null = null;
 let captureWindows: BrowserWindow[] = [];
-let captureInProgress = false;
-let workflowInProgress = false;
+let workflowState: WorkflowState = "idle";
 const windowContexts = new Map<number, WindowContext>();
+
+function setWorkflowState(next: WorkflowState, message?: string) {
+  workflowState = next;
+  updateWorkflowStatus(next !== "idle", message);
+}
 
 function setWindowContext(window: BrowserWindow, context: WindowContext) {
   const webContentsId = window.webContents.id;
@@ -129,7 +145,6 @@ function closeCaptureWindows() {
   }
 
   captureWindows = [];
-  captureInProgress = false;
 }
 
 async function getCaptureSource(displayId: number): Promise<CaptureSourcePayload> {
@@ -238,29 +253,28 @@ async function processCaptureResult(imageDataUrl: string) {
     broadcast({ type: "history-updated" });
     openResultWindow(failed ?? item);
   } finally {
-    workflowInProgress = false;
-    updateWorkflowStatus(false);
+    setWorkflowState("idle");
   }
 }
 
 async function startCaptureFlow() {
-  if (workflowInProgress || captureInProgress) {
+  if (workflowState !== "idle") {
     updateWorkflowStatus(true, "Finish the current OCR/translation before starting another capture");
     return;
   }
 
-  workflowInProgress = true;
-  captureInProgress = true;
-  updateWorkflowStatus(true, "Select an area to capture");
+  setWorkflowState("capturing", "Select an area to capture");
   const displays = screen.getAllDisplays();
   captureWindows = displays.map((display) => createCaptureWindow(display, setWindowContext));
 
   for (const window of captureWindows) {
     window.once("closed", () => {
       captureWindows = captureWindows.filter((candidate) => candidate !== window);
-      if (captureWindows.length === 0) {
-        captureInProgress = false;
-        updateWorkflowStatus(false);
+      // Only return to idle if we were still in the capture phase. If state is
+      // already "processing" (i.e. user submitted), processCaptureResult owns
+      // the transition back to idle.
+      if (captureWindows.length === 0 && workflowState === "capturing") {
+        setWorkflowState("idle");
       }
     });
   }
@@ -330,8 +344,8 @@ function installIpcHandlers() {
 
   ipcMain.handle("history:list", () => listHistory());
   ipcMain.handle("history:get", (_event, id: string) => getHistoryItem(id));
-  ipcMain.handle("history:clear", () => {
-    clearHistory();
+  ipcMain.handle("history:clear", async () => {
+    await clearHistory();
     broadcast({ type: "history-updated" });
     return listHistory();
   });
@@ -340,14 +354,16 @@ function installIpcHandlers() {
   ipcMain.handle("capture:start", () => startCaptureFlow());
   ipcMain.handle("capture:source", (_event, displayId: number) => getCaptureSource(displayId));
   ipcMain.handle("capture:submit", async (_event, payload: CaptureSubmitPayload) => {
+    // Transition before close so the window.closed listener sees "processing"
+    // and does not reset to idle.
+    setWorkflowState("processing", "Running OCR");
     closeCaptureWindows();
     await processCaptureResult(payload.imageDataUrl);
     return true;
   });
   ipcMain.handle("capture:cancel", () => {
+    // closeCaptureWindows triggers window.closed, which resets state to idle.
     closeCaptureWindows();
-    workflowInProgress = false;
-    updateWorkflowStatus(false);
     return true;
   });
 
@@ -359,9 +375,14 @@ function installIpcHandlers() {
     BrowserWindow.fromWebContents(event.sender)?.close();
     return true;
   });
+  ipcMain.handle("log:rendererError", (_event, payload: { message: string; stack?: string }) => {
+    log.error(`[renderer] ${payload.message}`, payload.stack ?? "");
+    return true;
+  });
 }
 
 let quitting = false;
+let cleaningUp = false;
 
 app.whenReady().then(() => {
   createTray();
@@ -377,8 +398,18 @@ app.whenReady().then(() => {
 app.on("window-all-closed", () => {
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
   quitting = true;
+
+  if (cleaningUp) {
+    return;
+  }
+
+  cleaningUp = true;
+  event.preventDefault();
+  void Promise.allSettled([terminateOcrWorker(), flushHistory()]).finally(() => {
+    app.quit();
+  });
 });
 
 app.on("will-quit", () => {
