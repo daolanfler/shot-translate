@@ -2,26 +2,21 @@
   "name": "shot-translate",
   "version": "0.1.0",
   "description": "Windows screenshot translation desktop app built with Electron, React, and local OCR.",
-  "main": "dist-electron/main/main.js",
+  "main": "out/main/index.js",
   "author": "OpenAI Codex",
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"npm:dev:electron\"",
-    "dev:renderer": "vite",
-    "dev:main": "tsc -p tsconfig.electron.json --watch --preserveWatchOutput",
-    "dev:electron": "wait-on tcp:5173 file:dist-electron/main/main.js && electron .",
-    "build": "npm run build:renderer && npm run build:main",
-    "build:renderer": "vite build",
-    "build:main": "tsc -p tsconfig.electron.json",
-    "start": "electron .",
-    "dist": "npm run build && electron-builder"
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc -b",
+    "start": "electron-vite preview",
+    "dist": "electron-vite build && electron-builder"
   },
   "build": {
     "appId": "com.codex.shottranslate",
     "productName": "Shot Translate",
     "files": [
-      "dist/**/*",
-      "dist-electron/**/*",
+      "out/**/*",
       "package.json"
     ],
     "directories": {
@@ -45,10 +40,9 @@
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",
-    "concurrently": "^9.2.1",
     "electron-builder": "^26.0.12",
+    "electron-vite": "^5.0.0",
     "typescript": "^5.9.3",
-    "vite": "^7.1.7",
-    "wait-on": "^8.0.5"
+    "vite": "^7.1.7"
   }
 }

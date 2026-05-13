@@ -1,6 +1,26 @@
 node_modules
-dist
-dist-electron
+out
 release
+
+# Build artifacts
+*.tsbuildinfo
+
+# Logs
 *.log
+npm-debug.log*
+
+# OCR language data (downloaded to userData at runtime, never the repo root)
 *.traineddata
+
+# Editor / OS
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local

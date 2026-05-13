@@ -2,14 +2,14 @@ import path from "node:path";
 import { BrowserWindow } from "electron";
 import type { WindowContext } from "../../shared/types";
 
-const isDev = !process.env.APP_PACKAGED;
-
 function buildUrl(hash: string) {
-  if (isDev) {
-    return `http://localhost:5173/${hash}`;
+  const devUrl = process.env.ELECTRON_RENDERER_URL;
+
+  if (devUrl) {
+    return `${devUrl}/${hash}`;
   }
 
-  return `file://${path.join(__dirname, "../../dist/index.html")}${hash}`;
+  return `file://${path.join(__dirname, "../renderer/index.html")}${hash}`;
 }
 
 export function createResultWindow(
@@ -27,7 +27,7 @@ export function createResultWindow(
     skipTaskbar: true,
     backgroundColor: "#00000000",
     webPreferences: {
-      preload: path.join(__dirname, "../../preload/index.js"),
+      preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false
     }
