@@ -15,12 +15,12 @@ interface Rect {
 }
 
 // Visual dimensions used to lay out the live size chip next to the selection.
-// CHIP_HEIGHT matches the rendered height of .capture-size-chip (12px font ×
-// 1.4 line-height + 2 × 3px vertical padding ≈ 22px). CHIP_GAP is the small
+// CHIP_HEIGHT matches the rendered height of the chip (12px font × 1.4
+// line-height + 2 × 3px vertical padding ≈ 22px). CHIP_GAP is the small
 // breathing room between the selection edge and the chip on any side.
 const CHIP_HEIGHT = 22;
 const CHIP_GAP = 6;
-const CHIP_MIN_WIDTH_AT_RIGHT = 90; // worst-case chip width near the right edge
+const CHIP_MIN_WIDTH_AT_RIGHT = 90;
 
 function normalizeRect(start: Point, end: Point): Rect {
   const left = Math.min(start.x, end.x);
@@ -137,7 +137,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
   return (
     <div
       ref={containerRef}
-      className={isReady ? "capture-root capture-root-ready" : "capture-root"}
+      className="relative min-h-screen bg-cover bg-no-repeat cursor-crosshair"
       style={source ? { backgroundImage: `url(${source.dataUrl})` } : undefined}
       onMouseDown={(event) => {
         if (!isReady) {
@@ -166,20 +166,31 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
       }}
     >
       {isReady ? (
-        <div className="capture-hud">
-          <strong>Drag to select a region</strong>
-          <span>Press Esc to cancel</span>
+        <div className="absolute inset-0 bg-slate-900/15" />
+      ) : (
+        <div className="absolute inset-0 bg-slate-900/35" />
+      )}
+
+      {isReady ? (
+        <div className="absolute left-1/2 top-6 z-10 flex -translate-x-1/2 items-center gap-3 rounded-full border border-border/70 bg-card/90 px-4 py-2 text-sm shadow-lg backdrop-blur-md">
+          <strong className="font-semibold">Drag to select a region</strong>
+          <span className="text-muted-foreground">Press Esc to cancel</span>
         </div>
       ) : (
-        <div className="capture-state-panel">
-          <strong>{errorMessage ? "Capture failed" : "Preparing screenshot..."}</strong>
-          <span>{errorMessage || "Press Esc to cancel if this takes too long."}</span>
+        <div className="absolute left-1/2 top-1/2 z-10 flex w-[min(420px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 rounded-xl border border-border bg-card px-6 py-5 text-center shadow-xl backdrop-blur">
+          <strong className="text-md font-semibold">
+            {errorMessage ? "Capture failed" : "Preparing screenshot…"}
+          </strong>
+          <span className="text-sm text-muted-foreground">
+            {errorMessage || "Press Esc to cancel if this takes too long."}
+          </span>
         </div>
       )}
+
       {rect ? (
         <>
           <div
-            className="capture-selection"
+            className="absolute z-[2] border-2 border-primary bg-primary/10 shadow-[0_0_0_9999px_rgba(15,23,42,0.28)]"
             style={{
               left: rect.left,
               top: rect.top,
@@ -189,10 +200,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
           />
           {rect.width >= 4 && rect.height >= 4 ? (
             <div
-              className="capture-size-chip"
-              // Pin to the bottom-right corner of the selection by default; flip
-              // above the selection if placing it below would overflow the
-              // bottom of the viewport.
+              className="pointer-events-none absolute z-[3] whitespace-nowrap rounded bg-slate-900/85 px-2 py-0.5 font-mono text-xs font-semibold text-slate-50"
               style={{
                 left: clamp(
                   rect.left + rect.width + CHIP_GAP,

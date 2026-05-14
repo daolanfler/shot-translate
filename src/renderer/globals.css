@@ -1,0 +1,149 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* -------------------------------------------------------------------------- */
+/* Design tokens — Bob Translate inspired, warm-neutral palette, light only.  */
+/* Dark mode tokens intentionally omitted until a follow-up PR.               */
+/* -------------------------------------------------------------------------- */
+
+:root {
+  --radius: 0.625rem; /* 10px */
+
+  /* Surfaces */
+  --background: oklch(0.985 0.002 80);
+  --foreground: oklch(0.18 0.005 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.005 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.005 250);
+
+  /* Brand / accent */
+  --primary: oklch(0.55 0.18 250);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.96 0.003 80);
+  --secondary-foreground: oklch(0.22 0.005 250);
+  --accent: oklch(0.96 0.012 240);
+  --accent-foreground: oklch(0.22 0.005 250);
+
+  /* States */
+  --muted: oklch(0.96 0.003 80);
+  --muted-foreground: oklch(0.45 0.005 250);
+  --destructive: oklch(0.55 0.20 25);
+  --success: oklch(0.55 0.13 145);
+
+  /* Borders & lines */
+  --border: oklch(0.92 0.003 80);
+  --input: oklch(0.92 0.003 80);
+  --ring: oklch(0.55 0.18 250);
+
+  /* Chart palette (kept default; not currently used) */
+  --chart-1: oklch(0.65 0.20 40);
+  --chart-2: oklch(0.60 0.13 185);
+  --chart-3: oklch(0.40 0.07 230);
+  --chart-4: oklch(0.83 0.19 85);
+  --chart-5: oklch(0.77 0.19 70);
+
+  /* Sidebar tokens (shadcn convention) */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.18 0.005 250);
+  --sidebar-primary: oklch(0.55 0.18 250);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.96 0.012 240);
+  --sidebar-accent-foreground: oklch(0.22 0.005 250);
+  --sidebar-border: oklch(0.92 0.003 80);
+  --sidebar-ring: oklch(0.55 0.18 250);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tailwind v4 theme bindings: expose tokens as utility classes, plus our     */
+/* compact (Bob-style) type scale.                                            */
+/* -------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 2px);
+
+  /* Compact type scale (Bob Translate uses ~13px body).
+     Names match Tailwind's defaults so utilities like text-base, text-sm etc.
+     just feel one notch tighter than vanilla Tailwind. */
+  --text-xs: 11px;
+  --text-xs--line-height: 16px;
+  --text-sm: 12px;
+  --text-sm--line-height: 18px;
+  --text-base: 13px;
+  --text-base--line-height: 20px;
+  --text-md: 14px;
+  --text-md--line-height: 22px;
+  --text-lg: 16px;
+  --text-lg--line-height: 24px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+
+  --font-sans:
+    "SF Pro Text", "Segoe UI Variable Text", "Segoe UI",
+    system-ui, "PingFang SC", "Microsoft YaHei UI", sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "Cascadia Mono", "Consolas",
+    "Liberation Mono", "Microsoft YaHei UI", monospace;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Base resets                                                                */
+/* -------------------------------------------------------------------------- */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+  }
+
+  body {
+    background: transparent;
+  }
+}
