@@ -110,7 +110,15 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
 
     await window.shotTranslate.submitCapture({
       displayId,
-      imageDataUrl: canvas.toDataURL("image/png")
+      imageDataUrl: canvas.toDataURL("image/png"),
+      // Translate rect (CSS px, capture-window relative) into screen-space
+      // (CSS px, display-relative) so main can anchor the result window.
+      selectionRect: {
+        x: window.screenX + rect.left,
+        y: window.screenY + rect.top,
+        width: rect.width,
+        height: rect.height
+      }
     });
   }
 
@@ -160,15 +168,36 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         </div>
       )}
       {rect ? (
-        <div
-          className="capture-selection"
-          style={{
-            left: rect.left,
-            top: rect.top,
-            width: rect.width,
-            height: rect.height
-          }}
-        />
+        <>
+          <div
+            className="capture-selection"
+            style={{
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height
+            }}
+          />
+          {rect.width >= 4 && rect.height >= 4 ? (
+            <div
+              className="capture-size-chip"
+              // Pin to the bottom-right corner of the selection; flip above the
+              // selection if it would overflow the bottom edge.
+              style={{
+                left: Math.min(
+                  rect.left + rect.width + 8,
+                  window.innerWidth - 90
+                ),
+                top:
+                  rect.top + rect.height + 28 > window.innerHeight
+                    ? Math.max(0, rect.top - 26)
+                    : rect.top + rect.height + 6
+              }}
+            >
+              {Math.round(rect.width)} × {Math.round(rect.height)}
+            </div>
+          ) : null}
+        </>
       ) : null}
     </div>
   );

@@ -231,14 +231,37 @@ button:disabled {
 }
 
 .checkbox-field {
-  grid-template-columns: auto 1fr;
+  display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .checkbox-field input {
   width: 18px;
   height: 18px;
   accent-color: #2563eb;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.checkbox-group legend {
+  padding: 0 4px;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.checkbox-group-hint {
+  margin: 0 0 6px;
+  font-size: 0.8em;
+  color: #6b7280;
 }
 
 .history-panel {
@@ -409,6 +432,18 @@ button:disabled {
   border: 2px solid #2563eb;
   box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.28);
   background: rgba(37, 99, 235, 0.1);
+}
+
+.capture-size-chip {
+  position: absolute;
+  z-index: 3;
+  padding: 3px 8px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #f8fafc;
+  font: 600 12px/1.4 ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .result-shell {

@@ -8,6 +8,7 @@ const ENCRYPTED_PREFIX = "enc:v1:";
 export const defaultSettings: AppSettings = {
   shortcut: "CommandOrControl+Shift+T",
   targetLanguage: "zh-CN",
+  ocrLanguages: ["eng", "chi_sim"],
   apiProvider: "openai-compatible",
   apiBaseUrl: "https://api.openai.com/v1",
   apiKey: "",
