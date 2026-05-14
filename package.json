@@ -30,6 +30,7 @@
     }
   },
   "dependencies": {
+    "electron-log": "^5.4.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tesseract.js": "^6.0.1",
@@ -45,5 +46,12 @@
     "electron-vite": "^5.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.1.7"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-builder",
+      "esbuild"
+    ]
   }
 }

@@ -28,6 +28,8 @@ const api = {
   cancelCapture: () => ipcRenderer.invoke("capture:cancel") as Promise<boolean>,
   writeClipboardText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text) as Promise<boolean>,
   closeResultWindow: () => ipcRenderer.invoke("result:close") as Promise<boolean>,
+  reportRendererError: (payload: { message: string; stack?: string }) =>
+    ipcRenderer.invoke("log:rendererError", payload) as Promise<boolean>,
   onAppEvent: (listener: (event: AppEvent) => void) => {
     const wrapped = (_event: Electron.IpcRendererEvent, payload: AppEvent) => listener(payload);
     ipcRenderer.on("app:event", wrapped);

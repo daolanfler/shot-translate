@@ -21,8 +21,15 @@ export function readJsonFile<T>(name: string, fallback: T): T {
   }
 }
 
-export function writeJsonFile(name: string, value: unknown) {
+/**
+ * Atomically writes JSON: serializes to a sibling tmp file, then renames over
+ * the target. The rename is a single filesystem metadata operation, so readers
+ * never observe a half-written file.
+ */
+export async function writeJsonFile(name: string, value: unknown): Promise<void> {
   const filePath = path.join(app.getPath("userData"), name);
   ensureDir(filePath);
-  fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf-8");
+  const tmpPath = `${filePath}.${process.pid}.tmp`;
+  await fs.promises.writeFile(tmpPath, JSON.stringify(value, null, 2), "utf-8");
+  await fs.promises.rename(tmpPath, filePath);
 }
