@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { KeybindingInput } from "@/components/keybinding-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -200,21 +201,13 @@ export function MainShell() {
               <h2 className="text-md font-semibold">Capture</h2>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="shortcut">Global shortcut</Label>
-                <Input
+                <KeybindingInput
                   id="shortcut"
                   value={settings.shortcut}
-                  placeholder="Alt+S"
-                  onChange={(event) => setSettings({ ...settings, shortcut: event.target.value })}
-                  onBlur={(event) => void saveSettings({ shortcut: event.target.value })}
+                  onChange={(next) => void saveSettings({ shortcut: next })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Use Electron accelerator syntax — modifiers (
-                  <code className="rounded bg-muted px-1">Alt</code>,{" "}
-                  <code className="rounded bg-muted px-1">Shift</code>,{" "}
-                  <code className="rounded bg-muted px-1">CommandOrControl</code>) joined
-                  by <code className="rounded bg-muted px-1">+</code>, e.g.{" "}
-                  <code className="rounded bg-muted px-1">Alt+S</code> or{" "}
-                  <code className="rounded bg-muted px-1">CommandOrControl+Shift+1</code>.
+                  Click the field, then press the key combo you want. Esc cancels.
                 </p>
               </div>
               <div className="flex items-center gap-2">
