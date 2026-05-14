@@ -32,7 +32,6 @@ function normalizeRect(start: Point, end: Point): Rect {
 
 export function CaptureOverlay({ displayId }: { displayId: number }) {
   const [source, setSource] = useState<CaptureSourcePayload | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
   const [dragStart, setDragStart] = useState<Point | null>(null);
   const [dragEnd, setDragEnd] = useState<Point | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -48,7 +47,9 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         }
 
         if (!nextSource.dataUrl) {
-          setErrorMessage("Failed to capture this display. Press Esc to cancel.");
+          // Source returned empty — overlay is unusable, bail silently.
+          console.error("Capture source returned empty dataUrl");
+          void window.shotTranslate.cancelCapture();
           return;
         }
 
@@ -59,11 +60,12 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
           return;
         }
 
-        setErrorMessage(
-          error instanceof Error
-            ? `Failed to capture this display: ${error.message}`
-            : "Failed to capture this display. Press Esc to cancel."
-        );
+        // getCaptureSource failed (display missing, desktopCapturer rejected,
+        // crop math broke, ...). Log to main via electron-log and abort —
+        // showing any UI inside the overlay would clash with the clean
+        // selection experience.
+        console.error("getCaptureSource failed", error);
+        void window.shotTranslate.cancelCapture();
       });
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -132,7 +134,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
   }
 
   const rect = dragStart && dragEnd ? normalizeRect(dragStart, dragEnd) : null;
-  const isReady = Boolean(source && !errorMessage);
+  const isReady = source !== null;
 
   return (
     <div
@@ -165,32 +167,15 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         await submitSelection(nextRect);
       }}
     >
-      {isReady ? (
-        <div className="absolute inset-0 bg-slate-900/15" />
-      ) : (
-        <div className="absolute inset-0 bg-slate-900/35" />
-      )}
-
-      {isReady ? (
-        <div className="absolute left-1/2 top-6 z-10 flex -translate-x-1/2 items-center gap-3 rounded-full border border-border/70 bg-card/90 px-4 py-2 text-sm shadow-lg backdrop-blur-md">
-          <strong className="font-semibold">Drag to select a region</strong>
-          <span className="text-muted-foreground">Press Esc to cancel</span>
-        </div>
-      ) : (
-        <div className="absolute left-1/2 top-1/2 z-10 flex w-[min(420px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 rounded-xl border border-border bg-card px-6 py-5 text-center shadow-xl backdrop-blur">
-          <strong className="text-md font-semibold">
-            {errorMessage ? "Capture failed" : "Preparing screenshot…"}
-          </strong>
-          <span className="text-sm text-muted-foreground">
-            {errorMessage || "Press Esc to cancel if this takes too long."}
-          </span>
-        </div>
-      )}
+      {/* Base dim layer — only when no selection exists. Once the user starts
+          dragging, the selection rect's box-shadow takes over with a
+          spotlight effect (everything outside the rect is darkened). */}
+      {!rect ? <div className="absolute inset-0 bg-slate-900/25" /> : null}
 
       {rect ? (
         <>
           <div
-            className="absolute z-[2] border-2 border-primary bg-primary/10 shadow-[0_0_0_9999px_rgba(15,23,42,0.28)]"
+            className="absolute z-[2] border-2 border-primary bg-primary/10 shadow-[0_0_0_9999px_rgba(15,23,42,0.32)]"
             style={{
               left: rect.left,
               top: rect.top,
