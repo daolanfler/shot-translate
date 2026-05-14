@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { clamp } from "../../shared/geometry";
 import type { CaptureSourcePayload } from "../../shared/types";
 
 interface Point {
@@ -184,10 +185,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
               // Pin to the bottom-right corner of the selection; flip above the
               // selection if it would overflow the bottom edge.
               style={{
-                left: Math.min(
-                  rect.left + rect.width + 8,
-                  window.innerWidth - 90
-                ),
+                left: clamp(rect.left + rect.width + 8, 0, window.innerWidth - 90),
                 top:
                   rect.top + rect.height + 28 > window.innerHeight
                     ? Math.max(0, rect.top - 26)

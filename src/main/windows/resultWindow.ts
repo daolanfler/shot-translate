@@ -1,14 +1,11 @@
 import path from "node:path";
 import { BrowserWindow, screen } from "electron";
+import { clamp } from "../../shared/geometry";
 import type { ScreenRect, WindowContext } from "../../shared/types";
 
 const WINDOW_WIDTH = 520;
 const WINDOW_HEIGHT = 420;
 const ANCHOR_GAP = 12;
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(value, max));
-}
 
 function buildUrl(hash: string) {
   const devUrl = process.env.ELECTRON_RENDERER_URL;
