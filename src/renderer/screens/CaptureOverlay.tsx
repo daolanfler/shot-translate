@@ -167,15 +167,14 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         await submitSelection(nextRect);
       }}
     >
-      {/* Base dim layer — only when no selection exists. Once the user starts
-          dragging, the selection rect's box-shadow takes over with a
-          spotlight effect (everything outside the rect is darkened). */}
-      {!rect ? <div className="absolute inset-0 bg-slate-900/25" /> : null}
+      {/* No dim overlay — matches Bob Translate. The crisp desktop image plus
+          the crosshair cursor is signal enough that capture mode is active;
+          dimming makes it harder to see what you're selecting. */}
 
       {rect ? (
         <>
           <div
-            className="absolute z-[2] border-2 border-primary bg-primary/10 shadow-[0_0_0_9999px_rgba(15,23,42,0.32)]"
+            className="absolute z-[2] border-2 border-primary bg-primary/10"
             style={{
               left: rect.left,
               top: rect.top,
