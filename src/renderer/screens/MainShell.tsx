@@ -8,6 +8,16 @@ const targetLanguageOptions = [
   { value: "ko", label: "Korean" }
 ];
 
+const ocrLanguageOptions = [
+  { value: "eng", label: "English" },
+  { value: "chi_sim", label: "Chinese (Simplified)" },
+  { value: "chi_tra", label: "Chinese (Traditional)" },
+  { value: "jpn", label: "Japanese" },
+  { value: "kor", label: "Korean" },
+  { value: "fra", label: "French" },
+  { value: "deu", label: "German" }
+];
+
 export function MainShell() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -183,6 +193,32 @@ export function MainShell() {
                   ))}
                 </select>
               </label>
+              <fieldset className="field checkbox-group">
+                <legend>OCR languages</legend>
+                <p className="checkbox-group-hint">
+                  Which Tesseract packs to load. Each adds 5-40&nbsp;MB on first use.
+                </p>
+                {ocrLanguageOptions.map((option) => {
+                  const checked = settings.ocrLanguages.includes(option.value);
+                  return (
+                    <label className="checkbox-field" key={option.value}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => {
+                          const next = event.target.checked
+                            ? Array.from(new Set([...settings.ocrLanguages, option.value]))
+                            : settings.ocrLanguages.filter((value) => value !== option.value);
+                          // Guarantee at least one language so OCR can run.
+                          const safe = next.length > 0 ? next : ["eng"];
+                          void saveSettings({ ocrLanguages: safe });
+                        }}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  );
+                })}
+              </fieldset>
             </section>
           </section>
         ) : (

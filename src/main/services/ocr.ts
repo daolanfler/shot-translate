@@ -6,7 +6,10 @@ import type { OcrResult } from "../../shared/types";
 
 type TesseractWorker = Awaited<ReturnType<typeof createWorker>>;
 
+const FALLBACK_LANGUAGES = ["eng"];
+
 let workerPromise: Promise<TesseractWorker> | null = null;
+let workerKey: string | null = null;
 
 function getTessdataCachePath() {
   const cachePath = path.join(app.getPath("userData"), "tessdata");
@@ -14,25 +17,63 @@ function getTessdataCachePath() {
   return cachePath;
 }
 
-async function getWorker(): Promise<TesseractWorker> {
-  if (!workerPromise) {
-    workerPromise = createWorker(["eng", "chi_sim"], 1, {
-      cachePath: getTessdataCachePath()
-    });
+function normaliseLanguages(languages: string[]): string[] {
+  const trimmed = languages.map((lang) => lang.trim()).filter(Boolean);
+  return trimmed.length > 0 ? Array.from(new Set(trimmed)).sort() : FALLBACK_LANGUAGES;
+}
+
+async function disposeWorker(): Promise<void> {
+  const pending = workerPromise;
+  workerPromise = null;
+  workerKey = null;
+
+  if (!pending) {
+    return;
   }
+
+  try {
+    const worker = await pending;
+    await worker.terminate();
+  } catch {
+    // Worker init never succeeded or already torn down — nothing to do.
+  }
+}
+
+async function getWorker(languages: string[]): Promise<TesseractWorker> {
+  const requestedKey = languages.join("+");
+
+  if (workerPromise && workerKey === requestedKey) {
+    return workerPromise;
+  }
+
+  // Language set changed since last call — tear the old worker down before
+  // spinning up the new one so we don't leak the previous WASM instance.
+  if (workerPromise) {
+    await disposeWorker();
+  }
+
+  workerKey = requestedKey;
+  workerPromise = createWorker(languages, 1, {
+    cachePath: getTessdataCachePath()
+  });
 
   return workerPromise;
 }
 
-export async function recognizeText(imageDataUrl: string): Promise<OcrResult> {
+export async function recognizeText(
+  imageDataUrl: string,
+  languages: string[]
+): Promise<OcrResult> {
+  const langs = normaliseLanguages(languages);
   let worker: TesseractWorker;
 
   try {
-    worker = await getWorker();
+    worker = await getWorker(langs);
   } catch (error) {
     // Worker init failed — reset so the next call retries cleanly instead of
     // re-throwing the cached rejection forever.
     workerPromise = null;
+    workerKey = null;
     throw error;
   }
 
@@ -45,24 +86,11 @@ export async function recognizeText(imageDataUrl: string): Promise<OcrResult> {
   } catch (error) {
     // Recognition failure may leave the worker in a bad state. Tear it down so
     // the next recognize() spins up a fresh worker.
-    workerPromise = null;
-    await worker.terminate().catch(() => {});
+    await disposeWorker();
     throw error;
   }
 }
 
 export async function terminateOcrWorker(): Promise<void> {
-  const pending = workerPromise;
-  workerPromise = null;
-
-  if (!pending) {
-    return;
-  }
-
-  try {
-    const worker = await pending;
-    await worker.terminate();
-  } catch {
-    // Worker never finished initializing or already terminated — nothing to do.
-  }
+  await disposeWorker();
 }

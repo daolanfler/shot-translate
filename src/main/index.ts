@@ -16,6 +16,7 @@ import type {
   CaptureSourcePayload,
   CaptureSubmitPayload,
   HistoryItem,
+  ScreenRect,
   WindowContext
 } from "../shared/types";
 import {
@@ -192,15 +193,15 @@ async function getCaptureSource(displayId: number): Promise<CaptureSourcePayload
   };
 }
 
-function openResultWindow(item: HistoryItem) {
+function openResultWindow(item: HistoryItem, anchor?: ScreenRect) {
   if (resultWindow && !resultWindow.isDestroyed()) {
     resultWindow.close();
   }
 
-  resultWindow = createResultWindow(item.id, setWindowContext);
+  resultWindow = createResultWindow(item.id, setWindowContext, anchor);
 }
 
-async function processCaptureResult(imageDataUrl: string) {
+async function processCaptureResult(imageDataUrl: string, selectionRect?: ScreenRect) {
   const settings = getSettings();
   const item = createHistoryItem(settings.targetLanguage);
   broadcast({ type: "history-updated" });
@@ -212,7 +213,7 @@ async function processCaptureResult(imageDataUrl: string) {
     });
     broadcast({ type: "history-updated" });
 
-    const ocr = await recognizeText(imageDataUrl);
+    const ocr = await recognizeText(imageDataUrl, settings.ocrLanguages);
 
     if (!ocr.text) {
       const failed = updateHistoryItem(item.id, {
@@ -220,7 +221,7 @@ async function processCaptureResult(imageDataUrl: string) {
         errorMessage: "No text was detected in the screenshot."
       });
       broadcast({ type: "history-updated" });
-      openResultWindow(failed ?? item);
+      openResultWindow(failed ?? item, selectionRect);
       return;
     }
 
@@ -243,7 +244,7 @@ async function processCaptureResult(imageDataUrl: string) {
     });
 
     broadcast({ type: "history-updated" });
-    openResultWindow(completed ?? item);
+    openResultWindow(completed ?? item, selectionRect);
   } catch (error) {
     const failed = updateHistoryItem(item.id, {
       status: "error",
@@ -251,7 +252,7 @@ async function processCaptureResult(imageDataUrl: string) {
     });
 
     broadcast({ type: "history-updated" });
-    openResultWindow(failed ?? item);
+    openResultWindow(failed ?? item, selectionRect);
   } finally {
     setWorkflowState("idle");
   }
@@ -358,7 +359,7 @@ function installIpcHandlers() {
     // and does not reset to idle.
     setWorkflowState("processing", "Running OCR");
     closeCaptureWindows();
-    await processCaptureResult(payload.imageDataUrl);
+    await processCaptureResult(payload.imageDataUrl, payload.selectionRect);
     return true;
   });
   ipcMain.handle("capture:cancel", () => {

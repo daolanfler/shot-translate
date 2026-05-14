@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { clamp } from "../../shared/geometry";
 import type { CaptureSourcePayload } from "../../shared/types";
 
 interface Point {
@@ -12,6 +13,14 @@ interface Rect {
   width: number;
   height: number;
 }
+
+// Visual dimensions used to lay out the live size chip next to the selection.
+// CHIP_HEIGHT matches the rendered height of .capture-size-chip (12px font ×
+// 1.4 line-height + 2 × 3px vertical padding ≈ 22px). CHIP_GAP is the small
+// breathing room between the selection edge and the chip on any side.
+const CHIP_HEIGHT = 22;
+const CHIP_GAP = 6;
+const CHIP_MIN_WIDTH_AT_RIGHT = 90; // worst-case chip width near the right edge
 
 function normalizeRect(start: Point, end: Point): Rect {
   const left = Math.min(start.x, end.x);
@@ -110,7 +119,15 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
 
     await window.shotTranslate.submitCapture({
       displayId,
-      imageDataUrl: canvas.toDataURL("image/png")
+      imageDataUrl: canvas.toDataURL("image/png"),
+      // Translate rect (CSS px, capture-window relative) into screen-space
+      // (CSS px, display-relative) so main can anchor the result window.
+      selectionRect: {
+        x: window.screenX + rect.left,
+        y: window.screenY + rect.top,
+        width: rect.width,
+        height: rect.height
+      }
     });
   }
 
@@ -160,15 +177,38 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         </div>
       )}
       {rect ? (
-        <div
-          className="capture-selection"
-          style={{
-            left: rect.left,
-            top: rect.top,
-            width: rect.width,
-            height: rect.height
-          }}
-        />
+        <>
+          <div
+            className="capture-selection"
+            style={{
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height
+            }}
+          />
+          {rect.width >= 4 && rect.height >= 4 ? (
+            <div
+              className="capture-size-chip"
+              // Pin to the bottom-right corner of the selection by default; flip
+              // above the selection if placing it below would overflow the
+              // bottom of the viewport.
+              style={{
+                left: clamp(
+                  rect.left + rect.width + CHIP_GAP,
+                  0,
+                  window.innerWidth - CHIP_MIN_WIDTH_AT_RIGHT
+                ),
+                top:
+                  rect.top + rect.height + CHIP_GAP + CHIP_HEIGHT > window.innerHeight
+                    ? Math.max(0, rect.top - CHIP_HEIGHT - CHIP_GAP)
+                    : rect.top + rect.height + CHIP_GAP
+              }}
+            >
+              {Math.round(rect.width)} × {Math.round(rect.height)}
+            </div>
+          ) : null}
+        </>
       ) : null}
     </div>
   );

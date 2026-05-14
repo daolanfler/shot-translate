@@ -11,6 +11,12 @@ export type HistoryStatus =
 export interface AppSettings {
   shortcut: string;
   targetLanguage: string;
+  /**
+   * Tesseract language packs to load (e.g. "eng", "chi_sim"). Order does not
+   * matter; the OCR worker keys itself by the sorted list so toggling languages
+   * triggers a clean rebuild.
+   */
+  ocrLanguages: string[];
   apiProvider: ApiProvider;
   apiBaseUrl: string;
   apiKey: string;
@@ -66,9 +72,23 @@ export interface CaptureSourcePayload {
   height: number;
 }
 
+/** Rectangle in screen / display coordinates (CSS pixels, not device pixels). */
+export interface ScreenRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface CaptureSubmitPayload {
   displayId: number;
   imageDataUrl: string;
+  /**
+   * The captured region in screen-coordinates (CSS px). Used to anchor the
+   * result window near the selection instead of always centering on the
+   * primary display.
+   */
+  selectionRect: ScreenRect;
 }
 
 export interface AppEvent {
