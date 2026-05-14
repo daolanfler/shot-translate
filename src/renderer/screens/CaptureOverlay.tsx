@@ -15,12 +15,12 @@ interface Rect {
 }
 
 // Visual dimensions used to lay out the live size chip next to the selection.
-// CHIP_HEIGHT matches the rendered height of .capture-size-chip (12px font ×
-// 1.4 line-height + 2 × 3px vertical padding ≈ 22px). CHIP_GAP is the small
+// CHIP_HEIGHT matches the rendered height of the chip (12px font × 1.4
+// line-height + 2 × 3px vertical padding ≈ 22px). CHIP_GAP is the small
 // breathing room between the selection edge and the chip on any side.
 const CHIP_HEIGHT = 22;
 const CHIP_GAP = 6;
-const CHIP_MIN_WIDTH_AT_RIGHT = 90; // worst-case chip width near the right edge
+const CHIP_MIN_WIDTH_AT_RIGHT = 90;
 
 function normalizeRect(start: Point, end: Point): Rect {
   const left = Math.min(start.x, end.x);
@@ -32,7 +32,6 @@ function normalizeRect(start: Point, end: Point): Rect {
 
 export function CaptureOverlay({ displayId }: { displayId: number }) {
   const [source, setSource] = useState<CaptureSourcePayload | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
   const [dragStart, setDragStart] = useState<Point | null>(null);
   const [dragEnd, setDragEnd] = useState<Point | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -48,7 +47,9 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         }
 
         if (!nextSource.dataUrl) {
-          setErrorMessage("Failed to capture this display. Press Esc to cancel.");
+          // Source returned empty — overlay is unusable, bail silently.
+          console.error("Capture source returned empty dataUrl");
+          void window.shotTranslate.cancelCapture();
           return;
         }
 
@@ -59,11 +60,12 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
           return;
         }
 
-        setErrorMessage(
-          error instanceof Error
-            ? `Failed to capture this display: ${error.message}`
-            : "Failed to capture this display. Press Esc to cancel."
-        );
+        // getCaptureSource failed (display missing, desktopCapturer rejected,
+        // crop math broke, ...). Log to main via electron-log and abort —
+        // showing any UI inside the overlay would clash with the clean
+        // selection experience.
+        console.error("getCaptureSource failed", error);
+        void window.shotTranslate.cancelCapture();
       });
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -132,12 +134,12 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
   }
 
   const rect = dragStart && dragEnd ? normalizeRect(dragStart, dragEnd) : null;
-  const isReady = Boolean(source && !errorMessage);
+  const isReady = source !== null;
 
   return (
     <div
       ref={containerRef}
-      className={isReady ? "capture-root capture-root-ready" : "capture-root"}
+      className="relative min-h-screen bg-cover bg-no-repeat cursor-crosshair"
       style={source ? { backgroundImage: `url(${source.dataUrl})` } : undefined}
       onMouseDown={(event) => {
         if (!isReady) {
@@ -165,21 +167,14 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         await submitSelection(nextRect);
       }}
     >
-      {isReady ? (
-        <div className="capture-hud">
-          <strong>Drag to select a region</strong>
-          <span>Press Esc to cancel</span>
-        </div>
-      ) : (
-        <div className="capture-state-panel">
-          <strong>{errorMessage ? "Capture failed" : "Preparing screenshot..."}</strong>
-          <span>{errorMessage || "Press Esc to cancel if this takes too long."}</span>
-        </div>
-      )}
+      {/* No dim overlay — matches Bob Translate. The crisp desktop image plus
+          the crosshair cursor is signal enough that capture mode is active;
+          dimming makes it harder to see what you're selecting. */}
+
       {rect ? (
         <>
           <div
-            className="capture-selection"
+            className="absolute z-[2] border-2 border-primary bg-primary/10"
             style={{
               left: rect.left,
               top: rect.top,
@@ -189,10 +184,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
           />
           {rect.width >= 4 && rect.height >= 4 ? (
             <div
-              className="capture-size-chip"
-              // Pin to the bottom-right corner of the selection by default; flip
-              // above the selection if placing it below would overflow the
-              // bottom of the viewport.
+              className="pointer-events-none absolute z-[3] whitespace-nowrap rounded bg-slate-900/85 px-2 py-0.5 font-mono text-xs font-semibold text-slate-50"
               style={{
                 left: clamp(
                   rect.left + rect.width + CHIP_GAP,

@@ -12,7 +12,11 @@ export function App() {
   }, []);
 
   if (!context) {
-    return <div className="boot-screen">Loading Shot Translate...</div>;
+    return (
+      <div className="grid h-full place-items-center bg-background text-sm text-muted-foreground">
+        Loading Shot Translate…
+      </div>
+    );
   }
 
   if (context.type === "capture") {

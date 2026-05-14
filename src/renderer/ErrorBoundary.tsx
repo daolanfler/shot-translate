@@ -1,4 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { AlertTriangle, RotateCcw } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   children: ReactNode;
@@ -33,17 +36,22 @@ export class ErrorBoundary extends Component<Props, State> {
     }
 
     return (
-      <div className="error-boundary">
-        <div className="error-boundary-card">
-          <p className="eyebrow">Something went wrong</p>
-          <h2>The window crashed.</h2>
-          <p className="error-boundary-message">{this.state.error.message}</p>
-          <p className="error-boundary-help">
+      <div className="grid h-full place-items-center bg-background p-6">
+        <div className="flex w-full max-w-md flex-col gap-4">
+          <Alert variant="destructive">
+            <AlertTriangle className="size-4" />
+            <AlertTitle>The window crashed.</AlertTitle>
+            <AlertDescription className="font-mono text-xs">
+              {this.state.error.message}
+            </AlertDescription>
+          </Alert>
+          <p className="text-sm text-muted-foreground">
             The error has been logged. You can reload this window to try again.
           </p>
-          <button className="primary-button" onClick={this.handleReload}>
+          <Button onClick={this.handleReload}>
+            <RotateCcw className="size-4" />
             Reload window
-          </button>
+          </Button>
         </div>
       </div>
     );
