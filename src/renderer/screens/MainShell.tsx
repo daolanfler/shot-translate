@@ -203,9 +203,19 @@ export function MainShell() {
                 <Input
                   id="shortcut"
                   value={settings.shortcut}
+                  placeholder="Alt+S"
                   onChange={(event) => setSettings({ ...settings, shortcut: event.target.value })}
                   onBlur={(event) => void saveSettings({ shortcut: event.target.value })}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Use Electron accelerator syntax — modifiers (
+                  <code className="rounded bg-muted px-1">Alt</code>,{" "}
+                  <code className="rounded bg-muted px-1">Shift</code>,{" "}
+                  <code className="rounded bg-muted px-1">CommandOrControl</code>) joined
+                  by <code className="rounded bg-muted px-1">+</code>, e.g.{" "}
+                  <code className="rounded bg-muted px-1">Alt+S</code> or{" "}
+                  <code className="rounded bg-muted px-1">CommandOrControl+Shift+1</code>.
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <Checkbox

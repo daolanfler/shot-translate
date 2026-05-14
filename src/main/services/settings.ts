@@ -6,7 +6,8 @@ const SETTINGS_FILE = "settings.json";
 const ENCRYPTED_PREFIX = "enc:v1:";
 
 export const defaultSettings: AppSettings = {
-  shortcut: "CommandOrControl+Shift+T",
+  // Alt+S avoids the common Ctrl+Shift+T browser "reopen closed tab" conflict.
+  shortcut: "Alt+S",
   targetLanguage: "zh-CN",
   ocrLanguages: ["eng", "chi_sim"],
   apiProvider: "openai-compatible",
