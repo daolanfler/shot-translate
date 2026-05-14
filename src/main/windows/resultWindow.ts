@@ -6,6 +6,10 @@ const WINDOW_WIDTH = 520;
 const WINDOW_HEIGHT = 420;
 const ANCHOR_GAP = 12;
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, max));
+}
+
 function buildUrl(hash: string) {
   const devUrl = process.env.ELECTRON_RENDERER_URL;
 
@@ -61,8 +65,8 @@ function pickPosition(anchor: ScreenRect | undefined): { x: number; y: number } 
   // Nothing fits cleanly — clamp the preferred (right-bottom) into work area.
   const preferred = candidates[0];
   return {
-    x: Math.max(work.x, Math.min(preferred.x, work.x + work.width - WINDOW_WIDTH)),
-    y: Math.max(work.y, Math.min(preferred.y, work.y + work.height - WINDOW_HEIGHT))
+    x: clamp(preferred.x, work.x, work.x + work.width - WINDOW_WIDTH),
+    y: clamp(preferred.y, work.y, work.y + work.height - WINDOW_HEIGHT)
   };
 }
 
