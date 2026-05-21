@@ -34,6 +34,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
   const [source, setSource] = useState<CaptureSourcePayload | null>(null);
   const [dragStart, setDragStart] = useState<Point | null>(null);
   const [dragEnd, setDragEnd] = useState<Point | null>(null);
+  const [showReadyHint, setShowReadyHint] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -54,6 +55,12 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         }
 
         setSource(nextSource);
+        setShowReadyHint(true);
+        window.setTimeout(() => {
+          if (mounted) {
+            setShowReadyHint(false);
+          }
+        }, 1400);
       })
       .catch((error: unknown) => {
         if (!mounted) {
@@ -149,6 +156,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
 
         setDragStart({ x: event.clientX, y: event.clientY });
         setDragEnd({ x: event.clientX, y: event.clientY });
+        setShowReadyHint(false);
       }}
       onMouseMove={(event) => {
         if (!dragStart) {
@@ -172,14 +180,12 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
           the crosshair cursor is signal enough that capture mode is active;
           dimming makes it harder to see what you're selecting. */}
 
-      {isReady ? (
-        <div className="pointer-events-none absolute left-1/2 top-4 z-[4] -translate-x-1/2 rounded bg-slate-900/85 px-3 py-1.5 text-xs font-medium text-slate-50 shadow-lg">
-          Drag to select. Press Esc to cancel.
+      {isReady && showReadyHint && !rect ? (
+        <div className="pointer-events-none absolute left-1/2 top-4 z-[4] -translate-x-1/2 rounded bg-slate-900/85 px-3 py-1.5 text-xs font-medium text-slate-50 shadow-lg transition-opacity">
+          拖拽选择区域，按 Esc 取消
         </div>
       ) : (
-        <div className="pointer-events-none absolute left-1/2 top-4 z-[4] -translate-x-1/2 rounded bg-slate-900/85 px-3 py-1.5 text-xs font-medium text-slate-50 shadow-lg">
-          Loading screen capture...
-        </div>
+        null
       )}
 
       {rect ? (
