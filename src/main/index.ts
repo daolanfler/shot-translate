@@ -295,12 +295,13 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
       return;
     }
 
-    updateHistoryItem(item.id, {
+    const translating = updateHistoryItem(item.id, {
       sourceText: ocr.text,
       status: "translating",
       errorMessage: undefined
     });
     broadcast({ type: "history-updated" });
+    openResultWindow(translating ?? item, selectionRect);
     updateWorkflowStatus(true, "Translating text");
 
     const translated = await translateText(ocr.text, settings);
@@ -314,7 +315,6 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
     });
 
     broadcast({ type: "history-updated" });
-    openResultWindow(completed ?? item, selectionRect);
   } catch (error) {
     log.error("Capture workflow failed.", error);
     const failed = updateHistoryItem(item.id, {
@@ -323,7 +323,9 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
     });
 
     broadcast({ type: "history-updated" });
-    openResultWindow(failed ?? item, selectionRect);
+    if (!failed?.sourceText) {
+      openResultWindow(failed ?? item, selectionRect);
+    }
   } finally {
     setWorkflowState("idle");
   }

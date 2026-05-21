@@ -10,6 +10,16 @@ let cachedHistory: HistoryItem[] | null = null;
 let pendingSnapshot: HistoryItem[] | null = null;
 let saveTimer: NodeJS.Timeout | null = null;
 
+export function resetHistoryForTests(): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+  }
+
+  cachedHistory = null;
+  pendingSnapshot = null;
+  saveTimer = null;
+}
+
 function getHistoryState() {
   if (!cachedHistory) {
     cachedHistory = readJsonFile<HistoryItem[]>(HISTORY_FILE, []);

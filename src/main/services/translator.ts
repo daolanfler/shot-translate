@@ -33,7 +33,7 @@ function buildPrompt(text: string, targetLanguage: string) {
   ].join(" ");
 }
 
-function classifyStatus(status: number, detail: string): TranslationServiceError {
+export function classifyStatus(status: number, detail: string): TranslationServiceError {
   if (status === 401) {
     return new TranslationServiceError("unauthorized", "API key was rejected.", detail);
   }
@@ -57,7 +57,7 @@ function classifyStatus(status: number, detail: string): TranslationServiceError
   );
 }
 
-function classifyNetworkError(error: unknown, proxyUrl: string): TranslationServiceError {
+export function classifyNetworkError(error: unknown, proxyUrl: string): TranslationServiceError {
   const message = error instanceof Error ? error.message : "Unknown network error";
   const cause =
     error instanceof Error && "cause" in error && error.cause
@@ -66,7 +66,7 @@ function classifyNetworkError(error: unknown, proxyUrl: string): TranslationServ
   const detail = `${message}.${cause}`;
   const lower = detail.toLowerCase();
 
-  if (lower.includes("timeout") || lower.includes("aborted")) {
+  if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("aborted")) {
     return new TranslationServiceError("timeout", "The translation request timed out.", detail);
   }
 
@@ -97,7 +97,7 @@ export function toUserMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error";
 }
 
-function parseJsonPayload(raw: string) {
+export function parseJsonPayload(raw: string) {
   const trimmed = raw.trim();
   const start = trimmed.indexOf("{");
   const end = trimmed.lastIndexOf("}");
