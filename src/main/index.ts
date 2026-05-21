@@ -17,11 +17,13 @@ import type {
   CaptureSubmitPayload,
   HistoryItem,
   ScreenRect,
+  ServiceResult,
   WindowContext
 } from "../shared/types";
 import {
   clearHistory,
   createHistoryItem,
+  deleteHistoryItem,
   flushHistory,
   getHistoryItem,
   listHistory,
@@ -30,7 +32,7 @@ import {
 import { getSettings, updateSettings } from "./services/settings";
 import { initLogger, log } from "./services/logger";
 import { recognizeText, terminateOcrWorker } from "./services/ocr";
-import { translateText } from "./services/translator";
+import { testTranslationConnection, toUserMessage, translateText } from "./services/translator";
 import { createCaptureWindow } from "./windows/captureWindow";
 import { createMainWindow } from "./windows/mainWindow";
 import { createResultWindow } from "./windows/resultWindow";
@@ -138,6 +140,72 @@ function registerShortcut(settings: AppSettings) {
   });
 }
 
+function isLikelyAccelerator(value: string) {
+  const parts = value
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0 || parts.some((part) => part.length === 0)) {
+    return false;
+  }
+
+  const key = parts.at(-1);
+  return Boolean(key && !["Alt", "Shift", "Control", "CommandOrControl", "CmdOrCtrl", "Command", "Super"].includes(key));
+}
+
+async function updateSettingsSafely(patch: Partial<AppSettings>): Promise<{
+  settings: AppSettings;
+  shortcutRegistered: boolean;
+  message: string;
+}> {
+  const current = getSettings();
+
+  if (typeof patch.shortcut === "string" && patch.shortcut !== current.shortcut) {
+    const shortcut = patch.shortcut.trim();
+
+    if (!isLikelyAccelerator(shortcut)) {
+      return {
+        settings: current,
+        shortcutRegistered: false,
+        message: "Shortcut is invalid. Use a key plus optional modifiers, for example Alt+S."
+      };
+    }
+
+    globalShortcut.unregisterAll();
+    const registered = globalShortcut.register(shortcut, () => {
+      void startCaptureFlow();
+    });
+
+    if (!registered) {
+      registerShortcut(current);
+      return {
+        settings: current,
+        shortcutRegistered: false,
+        message: "Shortcut could not be registered. It may already be in use."
+      };
+    }
+
+    const settings = await updateSettings({
+      ...patch,
+      shortcut
+    });
+    return {
+      settings,
+      shortcutRegistered: true,
+      message: "Settings saved."
+    };
+  }
+
+  const settings = await updateSettings(patch);
+  registerShortcut(settings);
+  return {
+    settings,
+    shortcutRegistered: true,
+    message: "Settings saved."
+  };
+}
+
 function closeCaptureWindows() {
   for (const window of captureWindows) {
     if (!window.isDestroyed()) {
@@ -213,7 +281,9 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
     });
     broadcast({ type: "history-updated" });
 
-    const ocr = await recognizeText(imageDataUrl, settings.ocrLanguages);
+    const ocr = await recognizeText(imageDataUrl, settings.ocrLanguages, (message) => {
+      updateWorkflowStatus(true, message);
+    });
 
     if (!ocr.text) {
       const failed = updateHistoryItem(item.id, {
@@ -246,9 +316,10 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
     broadcast({ type: "history-updated" });
     openResultWindow(completed ?? item, selectionRect);
   } catch (error) {
+    log.error("Capture workflow failed.", error);
     const failed = updateHistoryItem(item.id, {
       status: "error",
-      errorMessage: error instanceof Error ? error.message : "Unknown error"
+      errorMessage: toUserMessage(error)
     });
 
     broadcast({ type: "history-updated" });
@@ -281,26 +352,30 @@ async function startCaptureFlow() {
   }
 }
 
-async function retryHistoryItem(id: string) {
+async function retryHistoryItem(id: string, sourceText?: string) {
   const item = getHistoryItem(id);
 
   if (!item) {
     throw new Error("History item not found.");
   }
 
-  if (!item.sourceText) {
+  const nextSourceText = sourceText?.trim() ?? item.sourceText;
+
+  if (!nextSourceText) {
     throw new Error("Cannot retry translation because OCR text is missing.");
   }
 
   const settings = getSettings();
   updateHistoryItem(id, {
+    sourceText: nextSourceText,
+    translatedText: "",
     status: "translating",
     errorMessage: undefined
   });
   broadcast({ type: "history-updated" });
 
   try {
-    const translated = await translateText(item.sourceText, settings);
+    const translated = await translateText(nextSourceText, settings);
     const completed = updateHistoryItem(id, {
       translatedText: translated.translatedText,
       sourceLanguage: translated.sourceLanguage,
@@ -311,9 +386,10 @@ async function retryHistoryItem(id: string) {
     broadcast({ type: "history-updated" });
     return completed;
   } catch (error) {
+    log.error("Retry translation failed.", error);
     const failed = updateHistoryItem(id, {
       status: "error",
-      errorMessage: error instanceof Error ? error.message : "Unknown error"
+      errorMessage: toUserMessage(error)
     });
 
     broadcast({ type: "history-updated" });
@@ -328,19 +404,28 @@ function installIpcHandlers() {
 
   ipcMain.handle("settings:get", () => getSettings());
   ipcMain.handle("settings:update", async (_event, patch: Partial<AppSettings>) => {
-    const settings = await updateSettings(patch);
-    const registered = registerShortcut(settings);
+    const result = await updateSettingsSafely(patch);
 
     broadcast({
       type: "settings-updated",
       payload: {
-        message: registered
-          ? "Shortcut registered successfully."
-          : "Shortcut could not be registered. It may already be in use."
+        message: result.message
       }
     });
 
-    return { settings, shortcutRegistered: registered };
+    return result;
+  });
+  ipcMain.handle("settings:testApiConnection", async (_event, patch: Partial<AppSettings>): Promise<ServiceResult> => {
+    const result = await testTranslationConnection({
+      ...getSettings(),
+      ...patch
+    });
+
+    if (!result.ok) {
+      log.warn("API connection test failed.", result);
+    }
+
+    return result;
   });
 
   ipcMain.handle("history:list", () => listHistory());
@@ -350,7 +435,12 @@ function installIpcHandlers() {
     broadcast({ type: "history-updated" });
     return listHistory();
   });
-  ipcMain.handle("history:retry", (_event, id: string) => retryHistoryItem(id));
+  ipcMain.handle("history:delete", async (_event, id: string) => {
+    await deleteHistoryItem(id);
+    broadcast({ type: "history-updated" });
+    return listHistory();
+  });
+  ipcMain.handle("history:retry", (_event, id: string, sourceText?: string) => retryHistoryItem(id, sourceText));
 
   ipcMain.handle("capture:start", () => startCaptureFlow());
   ipcMain.handle("capture:source", (_event, displayId: number) => getCaptureSource(displayId));

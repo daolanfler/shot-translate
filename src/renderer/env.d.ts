@@ -4,6 +4,7 @@ import type {
   CaptureSourcePayload,
   CaptureSubmitPayload,
   HistoryItem,
+  ServiceResult,
   WindowContext
 } from "../shared/types";
 
@@ -15,11 +16,14 @@ declare global {
       updateSettings: (patch: Partial<AppSettings>) => Promise<{
         settings: AppSettings;
         shortcutRegistered: boolean;
+        message: string;
       }>;
+      testApiConnection: (patch: Partial<AppSettings>) => Promise<ServiceResult>;
       listHistory: () => Promise<HistoryItem[]>;
       getHistoryItem: (id: string) => Promise<HistoryItem | null>;
       clearHistory: () => Promise<HistoryItem[]>;
-      retryHistoryItem: (id: string) => Promise<HistoryItem | null>;
+      deleteHistoryItem: (id: string) => Promise<HistoryItem[]>;
+      retryHistoryItem: (id: string, sourceText?: string) => Promise<HistoryItem | null>;
       startCapture: () => Promise<void>;
       getCaptureSource: (displayId: number) => Promise<CaptureSourcePayload>;
       submitCapture: (payload: CaptureSubmitPayload) => Promise<boolean>;

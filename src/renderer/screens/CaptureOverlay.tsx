@@ -87,6 +87,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
     }
 
     if (rect.width < 12 || rect.height < 12) {
+      await window.shotTranslate.cancelCapture();
       return;
     }
 
@@ -170,6 +171,16 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
       {/* No dim overlay — matches Bob Translate. The crisp desktop image plus
           the crosshair cursor is signal enough that capture mode is active;
           dimming makes it harder to see what you're selecting. */}
+
+      {isReady ? (
+        <div className="pointer-events-none absolute left-1/2 top-4 z-[4] -translate-x-1/2 rounded bg-slate-900/85 px-3 py-1.5 text-xs font-medium text-slate-50 shadow-lg">
+          Drag to select. Press Esc to cancel.
+        </div>
+      ) : (
+        <div className="pointer-events-none absolute left-1/2 top-4 z-[4] -translate-x-1/2 rounded bg-slate-900/85 px-3 py-1.5 text-xs font-medium text-slate-50 shadow-lg">
+          Loading screen capture...
+        </div>
+      )}
 
       {rect ? (
         <>

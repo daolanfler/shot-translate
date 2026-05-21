@@ -79,6 +79,11 @@ export async function clearHistory(): Promise<void> {
   await flushHistory();
 }
 
+export async function deleteHistoryItem(id: string): Promise<void> {
+  saveHistory(getHistoryState().filter((item) => item.id !== id));
+  await flushHistory();
+}
+
 export function createHistoryItem(targetLanguage: string): HistoryItem {
   const now = new Date().toISOString();
   const item: HistoryItem = {

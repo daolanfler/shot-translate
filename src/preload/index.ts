@@ -5,6 +5,7 @@ import type {
   CaptureSourcePayload,
   CaptureSubmitPayload,
   HistoryItem,
+  ServiceResult,
   WindowContext
 } from "../shared/types";
 
@@ -15,11 +16,16 @@ const api = {
     ipcRenderer.invoke("settings:update", patch) as Promise<{
       settings: AppSettings;
       shortcutRegistered: boolean;
+      message: string;
     }>,
+  testApiConnection: (patch: Partial<AppSettings>) =>
+    ipcRenderer.invoke("settings:testApiConnection", patch) as Promise<ServiceResult>,
   listHistory: () => ipcRenderer.invoke("history:list") as Promise<HistoryItem[]>,
   getHistoryItem: (id: string) => ipcRenderer.invoke("history:get", id) as Promise<HistoryItem | null>,
   clearHistory: () => ipcRenderer.invoke("history:clear") as Promise<HistoryItem[]>,
-  retryHistoryItem: (id: string) => ipcRenderer.invoke("history:retry", id) as Promise<HistoryItem | null>,
+  deleteHistoryItem: (id: string) => ipcRenderer.invoke("history:delete", id) as Promise<HistoryItem[]>,
+  retryHistoryItem: (id: string, sourceText?: string) =>
+    ipcRenderer.invoke("history:retry", id, sourceText) as Promise<HistoryItem | null>,
   startCapture: () => ipcRenderer.invoke("capture:start") as Promise<void>,
   getCaptureSource: (displayId: number) =>
     ipcRenderer.invoke("capture:source", displayId) as Promise<CaptureSourcePayload>,

@@ -62,12 +62,14 @@ async function getWorker(languages: string[]): Promise<TesseractWorker> {
 
 export async function recognizeText(
   imageDataUrl: string,
-  languages: string[]
+  languages: string[],
+  onStatus?: (message: string) => void
 ): Promise<OcrResult> {
   const langs = normaliseLanguages(languages);
   let worker: TesseractWorker;
 
   try {
+    onStatus?.("Loading OCR language data");
     worker = await getWorker(langs);
   } catch (error) {
     // Worker init failed — reset so the next call retries cleanly instead of
@@ -78,6 +80,7 @@ export async function recognizeText(
   }
 
   try {
+    onStatus?.("Recognizing text");
     const result = await worker.recognize(imageDataUrl);
     return {
       text: result.data.text.trim(),

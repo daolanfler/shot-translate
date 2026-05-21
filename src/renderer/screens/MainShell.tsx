@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Camera, ClipboardCopy, RotateCcw, Trash2 } from "lucide-react";
-import type { AppEvent, AppSettings, HistoryItem } from "../../shared/types";
+import { Camera, ClipboardCopy, RotateCcw, Search, Trash2 } from "lucide-react";
+import type { AppEvent, AppSettings, HistoryItem, HistoryStatus } from "../../shared/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -35,7 +35,21 @@ const ocrLanguageOptions = [
   { value: "deu", label: "German" }
 ];
 
+const apiBaseUrlOptions = [
+  { value: "https://api.openai.com/v1", label: "OpenAI" },
+  { value: "custom", label: "Custom" }
+];
+
+const historyStatusOptions: Array<{ value: "all" | HistoryStatus | "processing"; label: string }> = [
+  { value: "all", label: "All statuses" },
+  { value: "success", label: "Done" },
+  { value: "error", label: "Error" },
+  { value: "ocr_failed", label: "OCR failed" },
+  { value: "processing", label: "Processing" }
+];
+
 type BadgeTone = "default" | "secondary" | "destructive" | "outline";
+type SaveState = "idle" | "saving" | "saved" | "error";
 
 function statusBadgeTone(status: HistoryItem["status"]): BadgeTone {
   switch (status) {
@@ -70,12 +84,22 @@ function statusLabel(status: HistoryItem["status"]): string {
   }
 }
 
+function isProcessingStatus(status: HistoryStatus) {
+  return status === "pending" || status === "ocr_processing" || status === "translating";
+}
+
 export function MainShell() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [busyMessage, setBusyMessage] = useState<string>("");
   const [notice, setNotice] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"settings" | "history">("settings");
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [testingApi, setTestingApi] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyStatus, setHistoryStatus] =
+    useState<(typeof historyStatusOptions)[number]["value"]>("all");
+  const [sourceDrafts, setSourceDrafts] = useState<Record<string, string>>({});
 
   async function refreshHistory() {
     const items = await window.shotTranslate.listHistory();
@@ -96,10 +120,28 @@ export function MainShell() {
       }
 
       if (event.type === "workflow-status") {
-        setBusyMessage(event.payload?.busy ? event.payload?.message ?? "Working…" : "");
+        setBusyMessage(event.payload?.busy ? event.payload?.message ?? "Working..." : "");
       }
     });
   }, []);
+
+  const filteredHistory = useMemo(() => {
+    const query = historySearch.trim().toLowerCase();
+
+    return history.filter((item) => {
+      const matchesStatus =
+        historyStatus === "all"
+          ? true
+          : historyStatus === "processing"
+            ? isProcessingStatus(item.status)
+            : item.status === historyStatus;
+      const haystack = [item.sourceText, item.translatedText, item.errorMessage ?? ""]
+        .join("\n")
+        .toLowerCase();
+      const matchesQuery = query ? haystack.includes(query) : true;
+      return matchesStatus && matchesQuery;
+    });
+  }, [history, historySearch, historyStatus]);
 
   const statusText = useMemo(() => {
     if (busyMessage) {
@@ -120,20 +162,51 @@ export function MainShell() {
 
     const next = { ...settings, ...patch };
     setSettings(next);
-    const result = await window.shotTranslate.updateSettings(patch);
-    setSettings(result.settings);
-    if (!result.shortcutRegistered) {
-      setNotice("Shortcut registration failed. It may already be used by another app.");
+    setSaveState("saving");
+
+    try {
+      const result = await window.shotTranslate.updateSettings(patch);
+      setSettings(result.settings);
+      setNotice(result.message);
+      setSaveState(result.shortcutRegistered ? "saved" : "error");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Settings could not be saved.");
+      setSaveState("error");
     }
+  }
+
+  async function testApiConnection() {
+    if (!settings) {
+      return;
+    }
+
+    setTestingApi(true);
+    setNotice("Testing API connection...");
+    const result = await window.shotTranslate.testApiConnection(settings);
+    setTestingApi(false);
+    setNotice(result.ok ? result.message : `${result.message}${result.details ? ` ${result.details}` : ""}`);
+  }
+
+  async function retryWithDraft(item: HistoryItem) {
+    const sourceText = (sourceDrafts[item.id] ?? item.sourceText).trim();
+    if (!sourceText) {
+      setNotice("This item has no OCR text. Capture again to retry.");
+      return;
+    }
+
+    await window.shotTranslate.retryHistoryItem(item.id, sourceText);
   }
 
   if (!settings) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
-        Loading settings…
+        Loading settings...
       </div>
     );
   }
+
+  const apiBasePreset =
+    apiBaseUrlOptions.some((option) => option.value === settings.apiBaseUrl) ? settings.apiBaseUrl : "custom";
 
   return (
     <div className="grid h-full grid-cols-[256px_1fr] bg-background text-foreground">
@@ -184,10 +257,21 @@ export function MainShell() {
           onValueChange={(value) => setActiveTab(value as "settings" | "history")}
           className="flex h-full min-h-0 flex-col gap-4"
         >
-          <TabsList>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between gap-3">
+            <TabsList>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
+            </TabsList>
+            <span className="text-xs text-muted-foreground">
+              {saveState === "saving"
+                ? "Saving..."
+                : saveState === "saved"
+                  ? "Saved"
+                  : saveState === "error"
+                    ? "Save failed"
+                    : ""}
+            </span>
+          </div>
 
           {notice ? (
             <div className="rounded-md border border-primary/20 bg-accent px-3 py-2 text-sm text-accent-foreground">
@@ -208,11 +292,7 @@ export function MainShell() {
                   onBlur={(event) => void saveSettings({ shortcut: event.target.value })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Use Electron accelerator syntax — modifiers (
-                  <code className="rounded bg-muted px-1">Alt</code>,{" "}
-                  <code className="rounded bg-muted px-1">Shift</code>,{" "}
-                  <code className="rounded bg-muted px-1">CommandOrControl</code>) joined
-                  by <code className="rounded bg-muted px-1">+</code>, e.g.{" "}
+                  Use Electron accelerator syntax, for example{" "}
                   <code className="rounded bg-muted px-1">Alt+S</code> or{" "}
                   <code className="rounded bg-muted px-1">CommandOrControl+Shift+1</code>.
                 </p>
@@ -232,7 +312,39 @@ export function MainShell() {
             </Card>
 
             <Card className="gap-4 p-5">
-              <h2 className="text-md font-semibold">Translation API</h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-md font-semibold">Translation API</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={testingApi}
+                  onClick={() => void testApiConnection()}
+                >
+                  {testingApi ? "Testing..." : "Test connection"}
+                </Button>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="apiBasePreset">API base preset</Label>
+                <Select
+                  value={apiBasePreset}
+                  onValueChange={(value) => {
+                    if (value !== "custom") {
+                      void saveSettings({ apiBaseUrl: value });
+                    }
+                  }}
+                >
+                  <SelectTrigger id="apiBasePreset" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {apiBaseUrlOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="apiBaseUrl">API base URL</Label>
                 <Input
@@ -258,7 +370,7 @@ export function MainShell() {
                 <Input
                   id="apiKey"
                   type="password"
-                  placeholder="sk-…"
+                  placeholder="sk-..."
                   value={settings.apiKey}
                   onChange={(event) => setSettings({ ...settings, apiKey: event.target.value })}
                   onBlur={(event) => void saveSettings({ apiKey: event.target.value })}
@@ -304,7 +416,7 @@ export function MainShell() {
                   <div>
                     <Label>OCR languages</Label>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Which Tesseract packs to load. Each adds 5–40 MB on first use.
+                      Which Tesseract packs to load. Each adds 5-40 MB on first use.
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -338,7 +450,7 @@ export function MainShell() {
           </TabsContent>
 
           <TabsContent value="history" className="mt-0 flex h-full min-h-0 flex-col gap-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-md font-semibold">Recent translations</h2>
                 <p className="text-sm text-muted-foreground">
@@ -354,54 +466,119 @@ export function MainShell() {
                 Clear
               </Button>
             </div>
+            <div className="grid gap-2 md:grid-cols-[1fr_180px]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-7"
+                  placeholder="Search source, translation, or errors"
+                  value={historySearch}
+                  onChange={(event) => setHistorySearch(event.target.value)}
+                />
+              </div>
+              <Select value={historyStatus} onValueChange={(value) => setHistoryStatus(value as typeof historyStatus)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {historyStatusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Separator />
             <ScrollArea className="flex-1 min-h-0">
               <div className="flex flex-col gap-2 pr-3">
-                {history.length === 0 ? (
+                {filteredHistory.length === 0 ? (
                   <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-                    No translations yet.
+                    No translations match the current filters.
                   </div>
                 ) : null}
-                {history.map((item) => (
-                  <Card key={item.id} className="gap-2 p-4">
-                    <header className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(item.createdAt).toLocaleString()}
-                      </span>
-                      <Badge variant={statusBadgeTone(item.status)}>
-                        {statusLabel(item.status)}
-                      </Badge>
-                    </header>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
-                      {item.sourceText || item.errorMessage || "No source text"}
-                    </p>
-                    <p className="text-sm whitespace-pre-wrap break-words">
-                      {item.translatedText || "No translation yet"}
-                    </p>
-                    <div className="flex items-center justify-end gap-1.5">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={!item.sourceText}
-                        onClick={() => window.shotTranslate.retryHistoryItem(item.id)}
-                      >
-                        <RotateCcw className="size-3.5" />
-                        Retry
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={!item.translatedText}
-                        onClick={() =>
-                          window.shotTranslate.writeClipboardText(item.translatedText)
-                        }
-                      >
-                        <ClipboardCopy className="size-3.5" />
-                        Copy
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
+                {filteredHistory.map((item) => {
+                  const sourceDraft = sourceDrafts[item.id] ?? item.sourceText;
+                  const canRetry = sourceDraft.trim().length > 0 && !isProcessingStatus(item.status);
+
+                  return (
+                    <Card key={item.id} className="gap-3 p-4">
+                      <header className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(item.createdAt).toLocaleString()}
+                        </span>
+                        <Badge variant={statusBadgeTone(item.status)}>
+                          {statusLabel(item.status)}
+                        </Badge>
+                      </header>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <label className="flex min-h-0 flex-col gap-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Source
+                          </span>
+                          <textarea
+                            className="min-h-24 resize-y rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            value={sourceDraft}
+                            placeholder={item.errorMessage || "No source text"}
+                            onChange={(event) =>
+                              setSourceDrafts((drafts) => ({
+                                ...drafts,
+                                [item.id]: event.target.value
+                              }))
+                            }
+                          />
+                        </label>
+                        <div className="flex min-h-0 flex-col gap-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Translation
+                          </span>
+                          <div className="min-h-24 rounded-md border bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap break-words">
+                            {item.translatedText || item.errorMessage || "No translation yet"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!sourceDraft.trim()}
+                          onClick={() => window.shotTranslate.writeClipboardText(sourceDraft)}
+                        >
+                          <ClipboardCopy className="size-3.5" />
+                          Copy source
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!item.translatedText}
+                          onClick={() =>
+                            window.shotTranslate.writeClipboardText(item.translatedText)
+                          }
+                        >
+                          <ClipboardCopy className="size-3.5" />
+                          Copy translation
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!canRetry}
+                          onClick={() => void retryWithDraft(item)}
+                        >
+                          <RotateCcw className="size-3.5" />
+                          Retry
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.shotTranslate.deleteHistoryItem(item.id)}
+                        >
+                          <Trash2 className="size-3.5" />
+                          Delete
+                        </Button>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
             </ScrollArea>
           </TabsContent>
