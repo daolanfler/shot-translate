@@ -139,8 +139,8 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
   return (
     <div
       ref={containerRef}
-      className="relative min-h-screen bg-cover bg-no-repeat cursor-crosshair"
-      style={source ? { backgroundImage: `url(${source.dataUrl})` } : undefined}
+      className="fixed inset-0 cursor-crosshair bg-cover bg-no-repeat"
+      style={source ? { backgroundImage: `url(${source.dataUrl})` } : { backgroundColor: "transparent" }}
       onMouseDown={(event) => {
         if (!isReady) {
           return;

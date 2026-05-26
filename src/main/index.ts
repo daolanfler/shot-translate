@@ -31,6 +31,7 @@ import { getSettings, updateSettings } from "./services/settings";
 import { initLogger, log } from "./services/logger";
 import { recognizeText, terminateOcrWorker } from "./services/ocr";
 import { translateText } from "./services/translator";
+import { UpdateService } from "./services/updateService";
 import { createCaptureWindow } from "./windows/captureWindow";
 import { createMainWindow } from "./windows/mainWindow";
 import { createResultWindow } from "./windows/resultWindow";
@@ -44,6 +45,7 @@ let mainWindow: BrowserWindow | null = null;
 let resultWindow: BrowserWindow | null = null;
 let captureWindows: BrowserWindow[] = [];
 let workflowState: WorkflowState = "idle";
+let updateService: UpdateService | null = null;
 const windowContexts = new Map<number, WindowContext>();
 
 function setWorkflowState(next: WorkflowState, message?: string) {
@@ -352,6 +354,31 @@ function installIpcHandlers() {
   });
   ipcMain.handle("history:retry", (_event, id: string) => retryHistoryItem(id));
 
+  ipcMain.handle("updates:get-state", () => {
+    return updateService?.getState();
+  });
+
+  ipcMain.handle("updates:get-settings", () => {
+    return updateService?.getSettings();
+  });
+
+  ipcMain.handle("updates:set-source", (_event, source: string) => {
+    return updateService?.setSource(source);
+  });
+
+  ipcMain.handle("updates:check", () => {
+    return updateService?.checkForUpdates();
+  });
+
+  ipcMain.handle("updates:download", () => {
+    return updateService?.downloadUpdate();
+  });
+
+  ipcMain.handle("updates:install", () => {
+    quitting = true;
+    updateService?.installUpdate();
+  });
+
   ipcMain.handle("capture:start", () => startCaptureFlow());
   ipcMain.handle("capture:source", (_event, displayId: number) => getCaptureSource(displayId));
   ipcMain.handle("capture:submit", async (_event, payload: CaptureSubmitPayload) => {
@@ -386,10 +413,12 @@ let quitting = false;
 let cleaningUp = false;
 
 app.whenReady().then(() => {
+  updateService = new UpdateService(() => mainWindow);
   createTray();
   installIpcHandlers();
   showMainWindow();
   registerShortcut(getSettings());
+  updateService.startStartupCheck();
 
   app.on("activate", () => {
     showMainWindow();

@@ -1,5 +1,35 @@
 export type ApiProvider = "openai-compatible";
 
+export type UpdateSource = "mirror" | "github";
+
+export type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "not-available"
+  | "downloading"
+  | "downloaded"
+  | "error"
+  | "disabled";
+
+export interface UpdateSettings {
+  source: UpdateSource;
+  feedUrl: string;
+}
+
+export interface UpdateState {
+  status: UpdateStatus;
+  source: UpdateSource;
+  currentVersion: string;
+  availableVersion: string | null;
+  downloadProgress: number | null;
+  errorMessage: string | null;
+  isChecking: boolean;
+  isUpdateAvailable: boolean;
+  isDownloading: boolean;
+  isUpdateDownloaded: boolean;
+}
+
 export type HistoryStatus =
   | "pending"
   | "ocr_processing"

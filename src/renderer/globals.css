@@ -138,12 +138,9 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply text-foreground font-sans antialiased;
     font-size: var(--text-base);
     line-height: var(--text-base--line-height);
-  }
-
-  body {
     background: transparent;
   }
 }

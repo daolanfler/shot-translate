@@ -1,22 +1,45 @@
 import { useEffect, useMemo, useState } from "react";
-import { Camera, ClipboardCopy, RotateCcw, Trash2 } from "lucide-react";
-import type { AppEvent, AppSettings, HistoryItem } from "../../shared/types";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
+  Alert,
+  AppShell,
+  Badge,
+  Button,
+  Checkbox,
+  Divider,
+  Group,
+  Modal,
+  NavLink,
+  Paper,
+  PasswordInput,
+  Progress,
+  ScrollArea,
+  SegmentedControl,
   Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
+  Stack,
+  Text,
+  TextInput,
+  ThemeIcon,
+  Title
+} from "@mantine/core";
+import {
+  IconAlertCircle,
+  IconCamera,
+  IconCheck,
+  IconClipboard,
+  IconDownload,
+  IconHistory,
+  IconLanguage,
+  IconRefresh,
+  IconRocket,
+  IconSettings,
+  IconTrash,
+  IconWorld
+} from "@tabler/icons-react";
+import type { AppEvent, AppSettings, HistoryItem, UpdateSource, UpdateStatus } from "../../shared/types";
+import { useUpdateState } from "../hooks/useUpdateState";
+import { UpdateService } from "../services/UpdateService";
+
+type View = "settings" | "history" | "updates";
 
 const targetLanguageOptions = [
   { value: "zh-CN", label: "Chinese (Simplified)" },
@@ -35,24 +58,6 @@ const ocrLanguageOptions = [
   { value: "deu", label: "German" }
 ];
 
-type BadgeTone = "default" | "secondary" | "destructive" | "outline";
-
-function statusBadgeTone(status: HistoryItem["status"]): BadgeTone {
-  switch (status) {
-    case "success":
-      return "default";
-    case "error":
-    case "ocr_failed":
-      return "destructive";
-    case "translating":
-    case "ocr_processing":
-    case "pending":
-      return "secondary";
-    default:
-      return "outline";
-  }
-}
-
 function statusLabel(status: HistoryItem["status"]): string {
   switch (status) {
     case "ocr_processing":
@@ -70,12 +75,74 @@ function statusLabel(status: HistoryItem["status"]): string {
   }
 }
 
+function historyBadgeColor(status: HistoryItem["status"]): string {
+  switch (status) {
+    case "success":
+      return "green";
+    case "error":
+    case "ocr_failed":
+      return "red";
+    case "translating":
+    case "ocr_processing":
+    case "pending":
+      return "blue";
+    default:
+      return "gray";
+  }
+}
+
+function updateStatusLabel(status: UpdateStatus | undefined): string {
+  switch (status) {
+    case "checking":
+      return "Checking";
+    case "available":
+      return "Update available";
+    case "downloading":
+      return "Downloading";
+    case "downloaded":
+      return "Downloaded";
+    case "not-available":
+      return "Up to date";
+    case "error":
+      return "Failed";
+    case "disabled":
+      return "Development mode";
+    default:
+      return "Idle";
+  }
+}
+
+function updateBadgeColor(status: UpdateStatus | undefined): string {
+  switch (status) {
+    case "available":
+    case "downloading":
+      return "blue";
+    case "downloaded":
+    case "not-available":
+      return "green";
+    case "error":
+      return "red";
+    case "disabled":
+      return "gray";
+    default:
+      return "dark";
+  }
+}
+
 export function MainShell() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [busyMessage, setBusyMessage] = useState<string>("");
-  const [notice, setNotice] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"settings" | "history">("settings");
+  const [busyMessage, setBusyMessage] = useState("");
+  const [notice, setNotice] = useState("");
+  const [activeView, setActiveView] = useState<View>("settings");
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
+  const { updateState } = useUpdateState();
+
+  const updateVersion = updateState?.availableVersion ?? null;
+  const shouldShowUpdateModal =
+    updateState?.isUpdateAvailable === true &&
+    updateVersion !== null &&
+    dismissedUpdateVersion !== updateVersion;
 
   async function refreshHistory() {
     const items = await window.shotTranslate.listHistory();
@@ -96,7 +163,7 @@ export function MainShell() {
       }
 
       if (event.type === "workflow-status") {
-        setBusyMessage(event.payload?.busy ? event.payload?.message ?? "Working…" : "");
+        setBusyMessage(event.payload?.busy ? event.payload?.message ?? "Working..." : "");
       }
     });
   }, []);
@@ -122,291 +189,451 @@ export function MainShell() {
     setSettings(next);
     const result = await window.shotTranslate.updateSettings(patch);
     setSettings(result.settings);
-    if (!result.shortcutRegistered) {
-      setNotice("Shortcut registration failed. It may already be used by another app.");
-    }
+    setNotice(
+      result.shortcutRegistered
+        ? "Settings saved."
+        : "Shortcut registration failed. It may already be used by another app."
+    );
   }
 
   if (!settings) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
-        Loading settings…
+        Loading settings...
       </div>
     );
   }
 
   return (
-    <div className="grid h-full grid-cols-[256px_1fr] bg-background text-foreground">
-      <aside className="flex flex-col justify-between gap-8 border-r bg-card p-6">
-        <div className="flex flex-col gap-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
-            Shot Translate
-          </p>
-          <h1 className="text-xl font-semibold leading-tight tracking-tight">
-            Capture &amp; translate
-          </h1>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Trigger a region capture, run local OCR, then send the text to an
-            OpenAI-compatible translation API.
-          </p>
-        </div>
+    <>
+      <Modal
+        opened={shouldShowUpdateModal}
+        onClose={() => setDismissedUpdateVersion(updateVersion)}
+        title="New version available"
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            Current version v{updateState?.currentVersion}; available version v{updateVersion}.
+          </Text>
+          <Text size="sm" c="dimmed">
+            Download now and install after the package is ready.
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="subtle" onClick={() => setDismissedUpdateVersion(updateVersion)}>
+              Later
+            </Button>
+            <Button leftSection={<IconDownload size={16} />} onClick={() => void UpdateService.downloadUpdate()}>
+              Download
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
-        <Card className="gap-3 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs uppercase tracking-wider text-muted-foreground">
-              Status
-            </span>
-            <span
-              className={
-                busyMessage
-                  ? "h-1.5 w-1.5 animate-pulse rounded-full bg-primary"
-                  : settings.apiKey
-                    ? "h-1.5 w-1.5 rounded-full bg-success"
-                    : "h-1.5 w-1.5 rounded-full bg-muted-foreground/40"
-              }
+      <AppShell navbar={{ width: 248, breakpoint: 0 }} padding="lg" bg="gray.0">
+        <AppShell.Navbar p="md" bg="white" style={{ display: "flex", flexDirection: "column" }}>
+          <Stack gap="sm" pb="md">
+            <Group gap="sm" wrap="nowrap">
+              <ThemeIcon size="lg" radius="md" variant="light" color="blue">
+                <IconLanguage size={20} />
+              </ThemeIcon>
+              <div>
+                <Title order={4} c="blue" style={{ lineHeight: 1.1 }}>
+                  Shot Translate
+                </Title>
+                <Text size="xs" c="dimmed">
+                  Capture OCR translator
+                </Text>
+              </div>
+            </Group>
+          </Stack>
+
+          <Divider />
+
+          <Stack gap={4} mt="md" style={{ flex: 1 }}>
+            <NavLink
+              label="Settings"
+              leftSection={<IconSettings size={20} />}
+              active={activeView === "settings"}
+              onClick={() => setActiveView("settings")}
+              variant="filled"
+              style={{ borderRadius: 8 }}
             />
+            <NavLink
+              label="History"
+              leftSection={<IconHistory size={20} />}
+              active={activeView === "history"}
+              onClick={() => setActiveView("history")}
+              variant="filled"
+              style={{ borderRadius: 8 }}
+            />
+            <NavLink
+              label="Updates"
+              leftSection={<IconWorld size={20} />}
+              rightSection={
+                updateState?.isUpdateAvailable ? (
+                  <Badge size="xs" color="blue" variant="light">
+                    New
+                  </Badge>
+                ) : null
+              }
+              active={activeView === "updates"}
+              onClick={() => setActiveView("updates")}
+              variant="filled"
+              style={{ borderRadius: 8 }}
+            />
+          </Stack>
+
+          <Paper withBorder p="md" radius="md">
+            <Stack gap="xs">
+              <Group justify="space-between">
+                <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                  Status
+                </Text>
+                <ThemeIcon
+                  size={18}
+                  radius="xl"
+                  color={busyMessage ? "blue" : settings.apiKey ? "green" : "gray"}
+                  variant="light"
+                >
+                  <IconCheck size={12} />
+                </ThemeIcon>
+              </Group>
+              <Text size="sm" fw={600}>
+                {statusText}
+              </Text>
+              <Button size="xs" fullWidth leftSection={<IconCamera size={15} />} onClick={() => window.shotTranslate.startCapture()}>
+                Capture now
+              </Button>
+            </Stack>
+          </Paper>
+        </AppShell.Navbar>
+
+        <AppShell.Main>
+          <ScrollArea h="calc(100vh - 32px)" offsetScrollbars>
+            <Stack gap="lg" maw={880} mx="auto" pb="lg">
+              {notice ? (
+                <Alert color="blue" variant="light" title="Notice" withCloseButton onClose={() => setNotice("")}>
+                  {notice}
+                </Alert>
+              ) : null}
+
+              {activeView === "settings" ? <SettingsView settings={settings} saveSettings={saveSettings} /> : null}
+              {activeView === "history" ? <HistoryView history={history} refreshHistory={refreshHistory} /> : null}
+              {activeView === "updates" ? <UpdatesView /> : null}
+            </Stack>
+          </ScrollArea>
+        </AppShell.Main>
+      </AppShell>
+    </>
+  );
+}
+
+function SettingsView({
+  settings,
+  saveSettings
+}: {
+  settings: AppSettings;
+  saveSettings: (patch: Partial<AppSettings>) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState(settings);
+
+  useEffect(() => {
+    setDraft(settings);
+  }, [settings]);
+
+  return (
+    <>
+      <Stack gap={4}>
+        <Title order={3}>Settings</Title>
+        <Text size="sm" c="dimmed">
+          Configure capture behavior, translation API access, and OCR languages.
+        </Text>
+      </Stack>
+
+      <Paper withBorder radius="md" p="lg">
+        <Group justify="space-between" align="flex-start" mb="md">
+          <div>
+            <Title order={4}>Capture</Title>
+            <Text size="sm" c="dimmed">
+              Global shortcut and startup behavior.
+            </Text>
           </div>
-          <p className="text-md font-medium leading-snug">{statusText}</p>
-          <Button
-            size="sm"
-            className="mt-1 w-full"
-            onClick={() => window.shotTranslate.startCapture()}
-          >
-            <Camera className="size-4" />
+          <Button leftSection={<IconCamera size={16} />} onClick={() => window.shotTranslate.startCapture()}>
             Capture now
           </Button>
-        </Card>
-      </aside>
+        </Group>
 
-      <main className="flex h-full min-h-0 flex-col gap-4 overflow-hidden p-6">
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => setActiveTab(value as "settings" | "history")}
-          className="flex h-full min-h-0 flex-col gap-4"
+        <Stack gap="md">
+          <TextInput
+            label="Global shortcut"
+            description="Use Electron accelerator syntax, such as Alt+S or CommandOrControl+Shift+1."
+            value={draft.shortcut}
+            onChange={(event) => setDraft({ ...draft, shortcut: event.currentTarget.value })}
+            onBlur={() => void saveSettings({ shortcut: draft.shortcut })}
+          />
+          <Checkbox
+            label="Launch on Windows startup"
+            checked={settings.launchOnStartup}
+            onChange={(event) => void saveSettings({ launchOnStartup: event.currentTarget.checked })}
+          />
+        </Stack>
+      </Paper>
+
+      <Paper withBorder radius="md" p="lg">
+        <Title order={4} mb={4}>
+          Translation API
+        </Title>
+        <Text size="sm" c="dimmed" mb="md">
+          Configure an OpenAI-compatible API endpoint.
+        </Text>
+
+        <Stack gap="md">
+          <TextInput
+            label="API base URL"
+            value={draft.apiBaseUrl}
+            onChange={(event) => setDraft({ ...draft, apiBaseUrl: event.currentTarget.value })}
+            onBlur={() => void saveSettings({ apiBaseUrl: draft.apiBaseUrl })}
+          />
+          <TextInput
+            label="Model"
+            value={draft.model}
+            onChange={(event) => setDraft({ ...draft, model: event.currentTarget.value })}
+            onBlur={() => void saveSettings({ model: draft.model })}
+          />
+          <PasswordInput
+            label="API key"
+            placeholder="sk-..."
+            value={draft.apiKey}
+            onChange={(event) => setDraft({ ...draft, apiKey: event.currentTarget.value })}
+            onBlur={() => void saveSettings({ apiKey: draft.apiKey })}
+          />
+          <TextInput
+            label="HTTP proxy"
+            placeholder="http://127.0.0.1:7890"
+            value={draft.apiProxyUrl}
+            onChange={(event) => setDraft({ ...draft, apiProxyUrl: event.currentTarget.value })}
+            onBlur={() => void saveSettings({ apiProxyUrl: draft.apiProxyUrl })}
+          />
+        </Stack>
+      </Paper>
+
+      <Paper withBorder radius="md" p="lg">
+        <Title order={4} mb={4}>
+          Languages
+        </Title>
+        <Text size="sm" c="dimmed" mb="md">
+          Choose the translation target and OCR packs loaded by Tesseract.
+        </Text>
+
+        <Stack gap="md">
+          <Select
+            label="Target language"
+            data={targetLanguageOptions}
+            value={settings.targetLanguage}
+            onChange={(value) => value && void saveSettings({ targetLanguage: value })}
+          />
+          <Checkbox.Group
+            label="OCR languages"
+            value={settings.ocrLanguages}
+            onChange={(value) => {
+              void saveSettings({ ocrLanguages: value.length > 0 ? value : ["eng"] });
+            }}
+          >
+            <Group mt="xs">
+              {ocrLanguageOptions.map((option) => (
+                <Checkbox key={option.value} value={option.value} label={option.label} />
+              ))}
+            </Group>
+          </Checkbox.Group>
+        </Stack>
+      </Paper>
+    </>
+  );
+}
+
+function HistoryView({ history, refreshHistory }: { history: HistoryItem[]; refreshHistory: () => Promise<void> }) {
+  return (
+    <>
+      <Group justify="space-between" align="flex-start">
+        <div>
+          <Title order={3}>History</Title>
+          <Text size="sm" c="dimmed">
+            Recent translations are stored locally; screenshots are not persisted.
+          </Text>
+        </div>
+        <Button
+          variant="light"
+          color="red"
+          leftSection={<IconTrash size={16} />}
+          onClick={async () => {
+            await window.shotTranslate.clearHistory();
+            await refreshHistory();
+          }}
         >
-          <TabsList>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
-          </TabsList>
+          Clear
+        </Button>
+      </Group>
 
-          {notice ? (
-            <div className="rounded-md border border-primary/20 bg-accent px-3 py-2 text-sm text-accent-foreground">
-              {notice}
-            </div>
+      <Stack gap="sm">
+        {history.length === 0 ? (
+          <Paper withBorder radius="md" p="xl" ta="center">
+            <Text size="sm" c="dimmed">
+              No translations yet.
+            </Text>
+          </Paper>
+        ) : null}
+
+        {history.map((item) => (
+          <Paper key={item.id} withBorder radius="md" p="md">
+            <Stack gap="xs">
+              <Group justify="space-between" gap="sm">
+                <Text size="xs" c="dimmed">
+                  {new Date(item.createdAt).toLocaleString()}
+                </Text>
+                <Badge color={historyBadgeColor(item.status)} variant="light">
+                  {statusLabel(item.status)}
+                </Badge>
+              </Group>
+              <Text size="sm" c="dimmed" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {item.sourceText || item.errorMessage || "No source text"}
+              </Text>
+              <Text size="sm" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {item.translatedText || "No translation yet"}
+              </Text>
+              <Group justify="flex-end" gap="xs">
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  leftSection={<IconRefresh size={14} />}
+                  disabled={!item.sourceText}
+                  onClick={() => window.shotTranslate.retryHistoryItem(item.id)}
+                >
+                  Retry
+                </Button>
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  leftSection={<IconClipboard size={14} />}
+                  disabled={!item.translatedText}
+                  onClick={() => window.shotTranslate.writeClipboardText(item.translatedText)}
+                >
+                  Copy
+                </Button>
+              </Group>
+            </Stack>
+          </Paper>
+        ))}
+      </Stack>
+    </>
+  );
+}
+
+function UpdatesView() {
+  const { updateState } = useUpdateState();
+  const updateProgress = updateState?.downloadProgress ?? 0;
+
+  return (
+    <>
+      <Stack gap={4}>
+        <Title order={3}>Updates</Title>
+        <Text size="sm" c="dimmed">
+          The app checks for releases at startup and waits for your confirmation before downloading.
+        </Text>
+      </Stack>
+
+      <Paper withBorder radius="md" p="lg">
+        <Group justify="space-between" align="flex-start" mb="md">
+          <div>
+            <Title order={4}>Application update</Title>
+            <Text size="sm" c="dimmed">
+              Switch sources if GitHub access is unstable.
+            </Text>
+          </div>
+          <Badge color={updateBadgeColor(updateState?.status)} variant="light">
+            {updateStatusLabel(updateState?.status)}
+          </Badge>
+        </Group>
+
+        <Stack gap="md">
+          <Group justify="space-between">
+            <Text size="sm" c="dimmed">
+              Update source
+            </Text>
+            <SegmentedControl
+              value={updateState?.source ?? "mirror"}
+              onChange={(value) => {
+                void UpdateService.setSource(value as UpdateSource);
+              }}
+              data={[
+                { label: "ghfast mirror", value: "mirror" },
+                { label: "GitHub", value: "github" }
+              ]}
+            />
+          </Group>
+
+          <Divider />
+
+          <Group justify="space-between">
+            <Text size="sm" c="dimmed">
+              Current version
+            </Text>
+            <Text size="sm" fw={600}>
+              v{updateState?.currentVersion ?? "0.1.0"}
+            </Text>
+          </Group>
+
+          {updateState?.availableVersion ? (
+            <>
+              <Divider />
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">
+                  Available version
+                </Text>
+                <Text size="sm" fw={600}>
+                  v{updateState.availableVersion}
+                </Text>
+              </Group>
+            </>
           ) : null}
 
-          <TabsContent value="settings" className="mt-0 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Card className="gap-4 p-5">
-              <h2 className="text-md font-semibold">Capture</h2>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="shortcut">Global shortcut</Label>
-                <Input
-                  id="shortcut"
-                  value={settings.shortcut}
-                  placeholder="Alt+S"
-                  onChange={(event) => setSettings({ ...settings, shortcut: event.target.value })}
-                  onBlur={(event) => void saveSettings({ shortcut: event.target.value })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Use Electron accelerator syntax — modifiers (
-                  <code className="rounded bg-muted px-1">Alt</code>,{" "}
-                  <code className="rounded bg-muted px-1">Shift</code>,{" "}
-                  <code className="rounded bg-muted px-1">CommandOrControl</code>) joined
-                  by <code className="rounded bg-muted px-1">+</code>, e.g.{" "}
-                  <code className="rounded bg-muted px-1">Alt+S</code> or{" "}
-                  <code className="rounded bg-muted px-1">CommandOrControl+Shift+1</code>.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="launchOnStartup"
-                  checked={settings.launchOnStartup}
-                  onCheckedChange={(checked) =>
-                    void saveSettings({ launchOnStartup: checked === true })
-                  }
-                />
-                <Label htmlFor="launchOnStartup" className="text-sm font-normal">
-                  Launch on Windows startup
-                </Label>
-              </div>
-            </Card>
+          {updateState?.isDownloading ? <Progress value={updateProgress} animated /> : null}
 
-            <Card className="gap-4 p-5">
-              <h2 className="text-md font-semibold">Translation API</h2>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="apiBaseUrl">API base URL</Label>
-                <Input
-                  id="apiBaseUrl"
-                  value={settings.apiBaseUrl}
-                  onChange={(event) =>
-                    setSettings({ ...settings, apiBaseUrl: event.target.value })
-                  }
-                  onBlur={(event) => void saveSettings({ apiBaseUrl: event.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="model">Model</Label>
-                <Input
-                  id="model"
-                  value={settings.model}
-                  onChange={(event) => setSettings({ ...settings, model: event.target.value })}
-                  onBlur={(event) => void saveSettings({ model: event.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="apiKey">API key</Label>
-                <Input
-                  id="apiKey"
-                  type="password"
-                  placeholder="sk-…"
-                  value={settings.apiKey}
-                  onChange={(event) => setSettings({ ...settings, apiKey: event.target.value })}
-                  onBlur={(event) => void saveSettings({ apiKey: event.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="apiProxyUrl">HTTP proxy (optional)</Label>
-                <Input
-                  id="apiProxyUrl"
-                  placeholder="http://127.0.0.1:7890"
-                  value={settings.apiProxyUrl}
-                  onChange={(event) =>
-                    setSettings({ ...settings, apiProxyUrl: event.target.value })
-                  }
-                  onBlur={(event) => void saveSettings({ apiProxyUrl: event.target.value })}
-                />
-              </div>
-            </Card>
+          {updateState?.errorMessage ? (
+            <Alert color="red" icon={<IconAlertCircle size={18} />} title="Update failed">
+              {updateState.errorMessage}
+            </Alert>
+          ) : null}
 
-            <Card className="gap-4 p-5 lg:col-span-2">
-              <h2 className="text-md font-semibold">Languages</h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="targetLanguage">Target language</Label>
-                  <Select
-                    value={settings.targetLanguage}
-                    onValueChange={(value) => void saveSettings({ targetLanguage: value })}
-                  >
-                    <SelectTrigger id="targetLanguage" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {targetLanguageOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+          <Group>
+            <Button
+              variant="outline"
+              leftSection={<IconRefresh size={16} />}
+              loading={updateState?.isChecking}
+              disabled={updateState?.isDownloading}
+              onClick={() => void UpdateService.checkForUpdates()}
+            >
+              Check for updates
+            </Button>
 
-                <fieldset className="flex flex-col gap-3">
-                  <div>
-                    <Label>OCR languages</Label>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Which Tesseract packs to load. Each adds 5–40 MB on first use.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ocrLanguageOptions.map((option) => {
-                      const checked = settings.ocrLanguages.includes(option.value);
-                      return (
-                        <label
-                          className="flex items-center gap-2 text-sm"
-                          key={option.value}
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(value) => {
-                              const next = value
-                                ? Array.from(
-                                    new Set([...settings.ocrLanguages, option.value])
-                                  )
-                                : settings.ocrLanguages.filter((v) => v !== option.value);
-                              const safe = next.length > 0 ? next : ["eng"];
-                              void saveSettings({ ocrLanguages: safe });
-                            }}
-                          />
-                          <span>{option.label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </fieldset>
-              </div>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="history" className="mt-0 flex h-full min-h-0 flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-md font-semibold">Recent translations</h2>
-                <p className="text-sm text-muted-foreground">
-                  Stored locally; original screenshots are never persisted.
-                </p>
-              </div>
+            {updateState?.isUpdateAvailable ? (
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => window.shotTranslate.clearHistory()}
+                leftSection={<IconDownload size={16} />}
+                loading={updateState.isDownloading}
+                onClick={() => void UpdateService.downloadUpdate()}
               >
-                <Trash2 className="size-4" />
-                Clear
+                Download update
               </Button>
-            </div>
-            <Separator />
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="flex flex-col gap-2 pr-3">
-                {history.length === 0 ? (
-                  <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-                    No translations yet.
-                  </div>
-                ) : null}
-                {history.map((item) => (
-                  <Card key={item.id} className="gap-2 p-4">
-                    <header className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(item.createdAt).toLocaleString()}
-                      </span>
-                      <Badge variant={statusBadgeTone(item.status)}>
-                        {statusLabel(item.status)}
-                      </Badge>
-                    </header>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
-                      {item.sourceText || item.errorMessage || "No source text"}
-                    </p>
-                    <p className="text-sm whitespace-pre-wrap break-words">
-                      {item.translatedText || "No translation yet"}
-                    </p>
-                    <div className="flex items-center justify-end gap-1.5">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={!item.sourceText}
-                        onClick={() => window.shotTranslate.retryHistoryItem(item.id)}
-                      >
-                        <RotateCcw className="size-3.5" />
-                        Retry
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={!item.translatedText}
-                        onClick={() =>
-                          window.shotTranslate.writeClipboardText(item.translatedText)
-                        }
-                      >
-                        <ClipboardCopy className="size-3.5" />
-                        Copy
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
+            ) : null}
+
+            {updateState?.isUpdateDownloaded ? (
+              <Button color="green" leftSection={<IconRocket size={16} />} onClick={() => void UpdateService.installUpdate()}>
+                Restart and install
+              </Button>
+            ) : null}
+          </Group>
+        </Stack>
+      </Paper>
+    </>
   );
 }
