@@ -105,3 +105,36 @@ Added the Windows shell preference to AGENTS.md: prefer Git Bash when available 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: Document agent signature convention
+
+**Date**: 2026-05-26
+**Task**: Document agent signature convention
+**Branch**: `codex-stability-improvements`
+
+### Summary
+
+Added AGENTS.md guidance requiring Codex commits to include a co-author trailer and Codex GitHub reviews/comments to use the [Codex Review] prefix.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `20a1a76` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
