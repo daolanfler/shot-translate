@@ -26,6 +26,16 @@ Run `pnpm typecheck` and `pnpm build` before handing off changes that touch main
 
 On Windows, prefer **Git Bash** for shell commands when it is available. Use PowerShell only when Git Bash is unavailable or when a Windows-specific command requires PowerShell semantics.
 
+## Agent Signatures
+
+When Codex creates a commit, include a Codex co-author trailer in the commit message:
+
+```text
+Co-authored-by: Codex <codex@openai.com>
+```
+
+When Codex posts a GitHub PR review or PR comment, prefix the comment body with `[Codex Review]`.
+
 ## Architecture
 
 ### Process Boundary
