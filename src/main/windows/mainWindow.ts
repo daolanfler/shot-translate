@@ -19,6 +19,7 @@ export function createMainWindow(onReady: (window: BrowserWindow, context: Windo
     minWidth: 960,
     minHeight: 640,
     title: "Shot Translate",
+    autoHideMenuBar: true,
     backgroundColor: "#f8f9fa",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),

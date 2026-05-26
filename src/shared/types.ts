@@ -55,6 +55,26 @@ export interface AppSettings {
   launchOnStartup: boolean;
 }
 
+export type ServiceErrorCode =
+  | "missing_api_key"
+  | "invalid_base_url"
+  | "proxy_failed"
+  | "unauthorized"
+  | "forbidden"
+  | "rate_limited"
+  | "model_not_found"
+  | "timeout"
+  | "network_error"
+  | "bad_response"
+  | "unknown";
+
+export interface ServiceResult {
+  ok: boolean;
+  message: string;
+  code?: ServiceErrorCode;
+  details?: string;
+}
+
 export interface HistoryItem {
   id: string;
   createdAt: string;

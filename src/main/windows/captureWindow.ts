@@ -29,6 +29,7 @@ export function createCaptureWindow(
     fullscreenable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
+    show: false,
     focusable: true,
     hasShadow: false,
     roundedCorners: false,
@@ -44,6 +45,12 @@ export function createCaptureWindow(
   window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   window.setFullScreenable(false);
   onReady(window, { type: "capture", displayId: display.id });
+  window.once("ready-to-show", () => {
+    if (!window.isDestroyed()) {
+      window.show();
+      window.focus();
+    }
+  });
   window.loadURL(buildUrl("#/capture"));
 
   return window;

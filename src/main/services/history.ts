@@ -10,6 +10,16 @@ let cachedHistory: HistoryItem[] | null = null;
 let pendingSnapshot: HistoryItem[] | null = null;
 let saveTimer: NodeJS.Timeout | null = null;
 
+export function resetHistoryForTests(): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+  }
+
+  cachedHistory = null;
+  pendingSnapshot = null;
+  saveTimer = null;
+}
+
 function getHistoryState() {
   if (!cachedHistory) {
     cachedHistory = readJsonFile<HistoryItem[]>(HISTORY_FILE, []);
@@ -76,6 +86,11 @@ export function getHistoryItem(id: string) {
 
 export async function clearHistory(): Promise<void> {
   saveHistory([]);
+  await flushHistory();
+}
+
+export async function deleteHistoryItem(id: string): Promise<void> {
+  saveHistory(getHistoryState().filter((item) => item.id !== id));
   await flushHistory();
 }
 

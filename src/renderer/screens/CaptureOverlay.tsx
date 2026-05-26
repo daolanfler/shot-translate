@@ -34,6 +34,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
   const [source, setSource] = useState<CaptureSourcePayload | null>(null);
   const [dragStart, setDragStart] = useState<Point | null>(null);
   const [dragEnd, setDragEnd] = useState<Point | null>(null);
+  const [pendingRect, setPendingRect] = useState<Rect | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -87,6 +88,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
     }
 
     if (rect.width < 12 || rect.height < 12) {
+      await window.shotTranslate.cancelCapture();
       return;
     }
 
@@ -133,7 +135,18 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
     });
   }
 
-  const rect = dragStart && dragEnd ? normalizeRect(dragStart, dragEnd) : null;
+  useEffect(() => {
+    if (!source || !pendingRect) {
+      return;
+    }
+
+    const rect = pendingRect;
+    setPendingRect(null);
+    void submitSelection(rect);
+  }, [source, pendingRect]);
+
+  const activeRect = dragStart && dragEnd ? normalizeRect(dragStart, dragEnd) : null;
+  const rect = activeRect ?? pendingRect;
   const isReady = source !== null;
 
   return (
@@ -142,10 +155,6 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
       className="fixed inset-0 cursor-crosshair bg-cover bg-no-repeat"
       style={source ? { backgroundImage: `url(${source.dataUrl})` } : { backgroundColor: "transparent" }}
       onMouseDown={(event) => {
-        if (!isReady) {
-          return;
-        }
-
         setDragStart({ x: event.clientX, y: event.clientY });
         setDragEnd({ x: event.clientX, y: event.clientY });
       }}
@@ -164,7 +173,18 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         const nextRect = normalizeRect(dragStart, { x: event.clientX, y: event.clientY });
         setDragStart(null);
         setDragEnd(null);
-        await submitSelection(nextRect);
+
+        if (nextRect.width < 12 || nextRect.height < 12) {
+          await window.shotTranslate.cancelCapture();
+          return;
+        }
+
+        if (source) {
+          await submitSelection(nextRect);
+          return;
+        }
+
+        setPendingRect(nextRect);
       }}
     >
       {/* No dim overlay — matches Bob Translate. The crisp desktop image plus

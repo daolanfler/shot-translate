@@ -5,6 +5,7 @@ import type {
   CaptureSourcePayload,
   CaptureSubmitPayload,
   HistoryItem,
+  ServiceResult,
   UpdateSettings,
   UpdateSource,
   UpdateState,
@@ -18,11 +19,16 @@ const api = {
     ipcRenderer.invoke("settings:update", patch) as Promise<{
       settings: AppSettings;
       shortcutRegistered: boolean;
+      message: string;
     }>,
+  testApiConnection: (patch: Partial<AppSettings>) =>
+    ipcRenderer.invoke("settings:testApiConnection", patch) as Promise<ServiceResult>,
   listHistory: () => ipcRenderer.invoke("history:list") as Promise<HistoryItem[]>,
   getHistoryItem: (id: string) => ipcRenderer.invoke("history:get", id) as Promise<HistoryItem | null>,
   clearHistory: () => ipcRenderer.invoke("history:clear") as Promise<HistoryItem[]>,
-  retryHistoryItem: (id: string) => ipcRenderer.invoke("history:retry", id) as Promise<HistoryItem | null>,
+  deleteHistoryItem: (id: string) => ipcRenderer.invoke("history:delete", id) as Promise<HistoryItem[]>,
+  retryHistoryItem: (id: string, sourceText?: string) =>
+    ipcRenderer.invoke("history:retry", id, sourceText) as Promise<HistoryItem | null>,
   getUpdateState: () => ipcRenderer.invoke("updates:get-state") as Promise<UpdateState>,
   getUpdateSettings: () => ipcRenderer.invoke("updates:get-settings") as Promise<UpdateSettings>,
   setUpdateSource: (source: UpdateSource) =>

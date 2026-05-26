@@ -10,6 +10,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc -b",
+    "test": "vitest run",
     "start": "electron-vite preview",
     "dist": "electron-vite build && electron-builder",
     "smoke:capture": "node scripts/smoke-capture.cjs"
@@ -63,7 +64,8 @@
     "electron-vite": "^5.0.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3",
-    "vite": "^7.1.7"
+    "vite": "^7.1.7",
+    "vitest": "^4.1.7"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

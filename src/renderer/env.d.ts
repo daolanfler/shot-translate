@@ -4,6 +4,7 @@ import type {
   CaptureSourcePayload,
   CaptureSubmitPayload,
   HistoryItem,
+  ServiceResult,
   UpdateSettings,
   UpdateSource,
   UpdateState,
@@ -18,11 +19,14 @@ declare global {
       updateSettings: (patch: Partial<AppSettings>) => Promise<{
         settings: AppSettings;
         shortcutRegistered: boolean;
+        message: string;
       }>;
+      testApiConnection: (patch: Partial<AppSettings>) => Promise<ServiceResult>;
       listHistory: () => Promise<HistoryItem[]>;
       getHistoryItem: (id: string) => Promise<HistoryItem | null>;
       clearHistory: () => Promise<HistoryItem[]>;
-      retryHistoryItem: (id: string) => Promise<HistoryItem | null>;
+      deleteHistoryItem: (id: string) => Promise<HistoryItem[]>;
+      retryHistoryItem: (id: string, sourceText?: string) => Promise<HistoryItem | null>;
       getUpdateState: () => Promise<UpdateState>;
       getUpdateSettings: () => Promise<UpdateSettings>;
       setUpdateSource: (source: UpdateSource) => Promise<UpdateSettings>;

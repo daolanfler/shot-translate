@@ -8,7 +8,8 @@ import {
   globalShortcut,
   ipcMain,
   nativeImage,
-  screen
+  screen,
+  type Display
 } from "electron";
 import type {
   AppEvent,
@@ -17,11 +18,13 @@ import type {
   CaptureSubmitPayload,
   HistoryItem,
   ScreenRect,
+  ServiceResult,
   WindowContext
 } from "../shared/types";
 import {
   clearHistory,
   createHistoryItem,
+  deleteHistoryItem,
   flushHistory,
   getHistoryItem,
   listHistory,
@@ -30,7 +33,7 @@ import {
 import { getSettings, updateSettings } from "./services/settings";
 import { initLogger, log } from "./services/logger";
 import { recognizeText, terminateOcrWorker } from "./services/ocr";
-import { translateText } from "./services/translator";
+import { testTranslationConnection, toUserMessage, translateText } from "./services/translator";
 import { UpdateService } from "./services/updateService";
 import { createCaptureWindow } from "./windows/captureWindow";
 import { createMainWindow } from "./windows/mainWindow";
@@ -40,10 +43,17 @@ initLogger();
 
 type WorkflowState = "idle" | "capturing" | "processing";
 
+const remoteDebuggingPort = process.env.SHOT_TRANSLATE_REMOTE_DEBUGGING_PORT;
+if (remoteDebuggingPort) {
+  app.commandLine.appendSwitch("remote-debugging-port", remoteDebuggingPort);
+  app.commandLine.appendSwitch("remote-allow-origins", "*");
+}
+
 let tray: Tray | null = null;
 let mainWindow: BrowserWindow | null = null;
 let resultWindow: BrowserWindow | null = null;
 let captureWindows: BrowserWindow[] = [];
+let captureSourceCache = new Map<number, CaptureSourcePayload>();
 let workflowState: WorkflowState = "idle";
 let updateService: UpdateService | null = null;
 const windowContexts = new Map<number, WindowContext>();
@@ -140,6 +150,80 @@ function registerShortcut(settings: AppSettings) {
   });
 }
 
+function requireUpdateService(): UpdateService {
+  if (!updateService) {
+    throw new Error("Update service has not been initialized.");
+  }
+
+  return updateService;
+}
+
+function isLikelyAccelerator(value: string) {
+  const parts = value
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0 || parts.some((part) => part.length === 0)) {
+    return false;
+  }
+
+  const key = parts.at(-1);
+  return Boolean(key && !["Alt", "Shift", "Control", "CommandOrControl", "CmdOrCtrl", "Command", "Super"].includes(key));
+}
+
+async function updateSettingsSafely(patch: Partial<AppSettings>): Promise<{
+  settings: AppSettings;
+  shortcutRegistered: boolean;
+  message: string;
+}> {
+  const current = getSettings();
+
+  if (typeof patch.shortcut === "string" && patch.shortcut !== current.shortcut) {
+    const shortcut = patch.shortcut.trim();
+
+    if (!isLikelyAccelerator(shortcut)) {
+      return {
+        settings: current,
+        shortcutRegistered: false,
+        message: "Shortcut is invalid. Use a key plus optional modifiers, for example Alt+S."
+      };
+    }
+
+    globalShortcut.unregisterAll();
+    const registered = globalShortcut.register(shortcut, () => {
+      void startCaptureFlow();
+    });
+
+    if (!registered) {
+      registerShortcut(current);
+      return {
+        settings: current,
+        shortcutRegistered: false,
+        message: "Shortcut could not be registered. It may already be in use."
+      };
+    }
+
+    const settings = await updateSettings({
+      ...patch,
+      shortcut
+    });
+    return {
+      settings,
+      shortcutRegistered: true,
+      message: "Settings saved."
+    };
+  }
+
+  const settings = await updateSettings(patch);
+  registerShortcut(settings);
+  return {
+    settings,
+    shortcutRegistered: true,
+    message: "Settings saved."
+  };
+}
+
 function closeCaptureWindows() {
   for (const window of captureWindows) {
     if (!window.isDestroyed()) {
@@ -148,15 +232,11 @@ function closeCaptureWindows() {
   }
 
   captureWindows = [];
+  captureSourceCache.clear();
 }
 
-async function getCaptureSource(displayId: number): Promise<CaptureSourcePayload> {
-  const display = screen.getAllDisplays().find((item) => item.id === displayId);
-
-  if (!display) {
-    throw new Error(`Display ${displayId} was not found.`);
-  }
-
+async function buildCaptureSource(display: Display): Promise<CaptureSourcePayload> {
+  const displayId = display.id;
   const source = (
     await desktopCapturer.getSources({
       types: ["screen"],
@@ -195,6 +275,22 @@ async function getCaptureSource(displayId: number): Promise<CaptureSourcePayload
   };
 }
 
+async function getCaptureSource(displayId: number): Promise<CaptureSourcePayload> {
+  const cached = captureSourceCache.get(displayId);
+
+  if (cached) {
+    return cached;
+  }
+
+  const display = screen.getAllDisplays().find((item) => item.id === displayId);
+
+  if (!display) {
+    throw new Error(`Display ${displayId} was not found.`);
+  }
+
+  return buildCaptureSource(display);
+}
+
 function openResultWindow(item: HistoryItem, anchor?: ScreenRect) {
   if (resultWindow && !resultWindow.isDestroyed()) {
     resultWindow.close();
@@ -215,7 +311,9 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
     });
     broadcast({ type: "history-updated" });
 
-    const ocr = await recognizeText(imageDataUrl, settings.ocrLanguages);
+    const ocr = await recognizeText(imageDataUrl, settings.ocrLanguages, (message) => {
+      updateWorkflowStatus(true, message);
+    });
 
     if (!ocr.text) {
       const failed = updateHistoryItem(item.id, {
@@ -227,12 +325,13 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
       return;
     }
 
-    updateHistoryItem(item.id, {
+    const translating = updateHistoryItem(item.id, {
       sourceText: ocr.text,
       status: "translating",
       errorMessage: undefined
     });
     broadcast({ type: "history-updated" });
+    openResultWindow(translating ?? item, selectionRect);
     updateWorkflowStatus(true, "Translating text");
 
     const translated = await translateText(ocr.text, settings);
@@ -244,17 +343,18 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
       status: "success",
       errorMessage: undefined
     });
-
     broadcast({ type: "history-updated" });
-    openResultWindow(completed ?? item, selectionRect);
   } catch (error) {
+    log.error("Capture workflow failed.", error);
     const failed = updateHistoryItem(item.id, {
       status: "error",
-      errorMessage: error instanceof Error ? error.message : "Unknown error"
+      errorMessage: toUserMessage(error)
     });
 
     broadcast({ type: "history-updated" });
-    openResultWindow(failed ?? item, selectionRect);
+    if (!failed?.sourceText) {
+      openResultWindow(failed ?? item, selectionRect);
+    }
   } finally {
     setWorkflowState("idle");
   }
@@ -266,8 +366,20 @@ async function startCaptureFlow() {
     return;
   }
 
-  setWorkflowState("capturing", "Select an area to capture");
+  setWorkflowState("capturing", "Preparing capture");
   const displays = screen.getAllDisplays();
+
+  try {
+    const sources = await Promise.all(displays.map((display) => buildCaptureSource(display)));
+    captureSourceCache = new Map(sources.map((source) => [source.displayId, source]));
+  } catch (error) {
+    log.error("Failed to prepare capture sources.", error);
+    captureSourceCache.clear();
+    setWorkflowState("idle");
+    return;
+  }
+
+  updateWorkflowStatus(true, "Select an area to capture");
   captureWindows = displays.map((display) => createCaptureWindow(display, setWindowContext));
 
   for (const window of captureWindows) {
@@ -283,26 +395,30 @@ async function startCaptureFlow() {
   }
 }
 
-async function retryHistoryItem(id: string) {
+async function retryHistoryItem(id: string, sourceText?: string) {
   const item = getHistoryItem(id);
 
   if (!item) {
     throw new Error("History item not found.");
   }
 
-  if (!item.sourceText) {
+  const nextSourceText = sourceText?.trim() ?? item.sourceText;
+
+  if (!nextSourceText) {
     throw new Error("Cannot retry translation because OCR text is missing.");
   }
 
   const settings = getSettings();
   updateHistoryItem(id, {
+    sourceText: nextSourceText,
+    translatedText: "",
     status: "translating",
     errorMessage: undefined
   });
   broadcast({ type: "history-updated" });
 
   try {
-    const translated = await translateText(item.sourceText, settings);
+    const translated = await translateText(nextSourceText, settings);
     const completed = updateHistoryItem(id, {
       translatedText: translated.translatedText,
       sourceLanguage: translated.sourceLanguage,
@@ -313,9 +429,10 @@ async function retryHistoryItem(id: string) {
     broadcast({ type: "history-updated" });
     return completed;
   } catch (error) {
+    log.error("Retry translation failed.", error);
     const failed = updateHistoryItem(id, {
       status: "error",
-      errorMessage: error instanceof Error ? error.message : "Unknown error"
+      errorMessage: toUserMessage(error)
     });
 
     broadcast({ type: "history-updated" });
@@ -330,19 +447,28 @@ function installIpcHandlers() {
 
   ipcMain.handle("settings:get", () => getSettings());
   ipcMain.handle("settings:update", async (_event, patch: Partial<AppSettings>) => {
-    const settings = await updateSettings(patch);
-    const registered = registerShortcut(settings);
+    const result = await updateSettingsSafely(patch);
 
     broadcast({
       type: "settings-updated",
       payload: {
-        message: registered
-          ? "Shortcut registered successfully."
-          : "Shortcut could not be registered. It may already be in use."
+        message: result.message
       }
     });
 
-    return { settings, shortcutRegistered: registered };
+    return result;
+  });
+  ipcMain.handle("settings:testApiConnection", async (_event, patch: Partial<AppSettings>): Promise<ServiceResult> => {
+    const result = await testTranslationConnection({
+      ...getSettings(),
+      ...patch
+    });
+
+    if (!result.ok) {
+      log.warn("API connection test failed.", result);
+    }
+
+    return result;
   });
 
   ipcMain.handle("history:list", () => listHistory());
@@ -352,31 +478,36 @@ function installIpcHandlers() {
     broadcast({ type: "history-updated" });
     return listHistory();
   });
-  ipcMain.handle("history:retry", (_event, id: string) => retryHistoryItem(id));
+  ipcMain.handle("history:delete", async (_event, id: string) => {
+    await deleteHistoryItem(id);
+    broadcast({ type: "history-updated" });
+    return listHistory();
+  });
+  ipcMain.handle("history:retry", (_event, id: string, sourceText?: string) => retryHistoryItem(id, sourceText));
 
   ipcMain.handle("updates:get-state", () => {
-    return updateService?.getState();
+    return requireUpdateService().getState();
   });
 
   ipcMain.handle("updates:get-settings", () => {
-    return updateService?.getSettings();
+    return requireUpdateService().getSettings();
   });
 
   ipcMain.handle("updates:set-source", (_event, source: string) => {
-    return updateService?.setSource(source);
+    return requireUpdateService().setSource(source);
   });
 
   ipcMain.handle("updates:check", () => {
-    return updateService?.checkForUpdates();
+    return requireUpdateService().checkForUpdates();
   });
 
   ipcMain.handle("updates:download", () => {
-    return updateService?.downloadUpdate();
+    return requireUpdateService().downloadUpdate();
   });
 
   ipcMain.handle("updates:install", () => {
     quitting = true;
-    updateService?.installUpdate();
+    requireUpdateService().installUpdate();
   });
 
   ipcMain.handle("capture:start", () => startCaptureFlow());

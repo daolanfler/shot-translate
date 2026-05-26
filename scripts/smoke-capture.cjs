@@ -2,7 +2,6 @@ const { spawn } = require("node:child_process");
 const crypto = require("node:crypto");
 const http = require("node:http");
 const net = require("node:net");
-const path = require("node:path");
 const zlib = require("node:zlib");
 
 const DEBUG_PORT = Number(process.env.CAPTURE_SMOKE_PORT ?? 9336);
@@ -64,6 +63,25 @@ async function waitForTarget(predicate, timeoutMs = 15000) {
   }
 
   throw new Error("Timed out waiting for Electron debug target.");
+}
+
+async function evaluateWithRetry(cdp, params, attempts = 2) {
+  let lastError;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await cdp.send("Runtime.evaluate", params);
+    } catch (error) {
+      lastError = error;
+      if (!String(error?.message ?? error).includes("Execution context was destroyed")) {
+        throw error;
+      }
+
+      await delay(750);
+    }
+  }
+
+  throw lastError;
 }
 
 class CdpClient {
@@ -355,25 +373,39 @@ function paethPredictor(left, up, upperLeft) {
 }
 
 function launchElectron() {
-  const electronPath = require("electron");
-  const appEntry = path.join(process.cwd(), "out/main/index.js");
+  const pnpmCli = process.env.npm_execpath;
+
+  if (!pnpmCli) {
+    throw new Error("npm_execpath is not available. Run this script through pnpm.");
+  }
+
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
 
   return spawn(
-    electronPath,
-    [
-      `--remote-debugging-port=${DEBUG_PORT}`,
-      "--remote-allow-origins=*",
-      appEntry
-    ],
+    process.execPath,
+    [pnpmCli, "run", "start"],
     {
       cwd: process.cwd(),
       env: {
-        ...process.env,
-        ELECTRON_ENABLE_LOGGING: "1"
+        ...env,
+        ELECTRON_ENABLE_LOGGING: "1",
+        SHOT_TRANSLATE_REMOTE_DEBUGGING_PORT: String(DEBUG_PORT)
       },
       stdio: ["ignore", "pipe", "pipe"]
     }
   );
+}
+
+function stopProcessTree(child) {
+  if (process.platform === "win32" && child.pid) {
+    spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+      stdio: "ignore"
+    });
+    return;
+  }
+
+  child.kill();
 }
 
 async function run() {
@@ -393,10 +425,11 @@ async function run() {
     const mainTarget = await waitForTarget((target) => target.type === "page" && /#\/$/.test(target.url));
     mainCdp = new CdpClient(mainTarget.webSocketDebuggerUrl);
     await mainCdp.connect();
+    await delay(1000);
 
-    await mainCdp.send("Runtime.evaluate", {
-      expression: "window.shotTranslate.startCapture()",
-      awaitPromise: true,
+    await evaluateWithRetry(mainCdp, {
+      expression: "void window.shotTranslate.startCapture(); true",
+      awaitPromise: false,
       returnByValue: true
     });
 
@@ -455,7 +488,7 @@ async function run() {
       captureCdp?.close();
       mainCdp?.close();
     } finally {
-      electron.kill();
+      stopProcessTree(electron);
     }
   }
 }

@@ -53,6 +53,10 @@ export class UpdateService {
   }
 
   async setSource(source: unknown): Promise<UpdateSettings> {
+    if (this.state.isChecking || this.state.isDownloading) {
+      throw new Error("Cannot change update source while an update operation is active.");
+    }
+
     this.source = this.parseSource(source);
     await this.saveConfig();
     this.configureFeedUrl();

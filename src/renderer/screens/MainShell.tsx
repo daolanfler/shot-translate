@@ -35,7 +35,7 @@ import {
   IconTrash,
   IconWorld
 } from "@tabler/icons-react";
-import type { AppEvent, AppSettings, HistoryItem, UpdateSource, UpdateStatus } from "../../shared/types";
+import type { AppEvent, AppSettings, HistoryItem, ServiceResult, UpdateSource, UpdateStatus } from "../../shared/types";
 import { useUpdateState } from "../hooks/useUpdateState";
 import { UpdateService } from "../services/UpdateService";
 
@@ -136,6 +136,8 @@ export function MainShell() {
   const [notice, setNotice] = useState("");
   const [activeView, setActiveView] = useState<View>("settings");
   const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
+  const [apiResult, setApiResult] = useState<ServiceResult | null>(null);
+  const [testingApi, setTestingApi] = useState(false);
   const { updateState } = useUpdateState();
 
   const updateVersion = updateState?.availableVersion ?? null;
@@ -189,11 +191,22 @@ export function MainShell() {
     setSettings(next);
     const result = await window.shotTranslate.updateSettings(patch);
     setSettings(result.settings);
-    setNotice(
-      result.shortcutRegistered
-        ? "Settings saved."
-        : "Shortcut registration failed. It may already be used by another app."
-    );
+    setNotice(result.message);
+  }
+
+  async function testApiConnection() {
+    if (!settings) {
+      return;
+    }
+
+    setTestingApi(true);
+    try {
+      const result = await window.shotTranslate.testApiConnection(settings);
+      setApiResult(result);
+      setNotice(result.message);
+    } finally {
+      setTestingApi(false);
+    }
   }
 
   if (!settings) {
@@ -318,7 +331,15 @@ export function MainShell() {
                 </Alert>
               ) : null}
 
-              {activeView === "settings" ? <SettingsView settings={settings} saveSettings={saveSettings} /> : null}
+              {activeView === "settings" ? (
+                <SettingsView
+                  apiResult={apiResult}
+                  settings={settings}
+                  saveSettings={saveSettings}
+                  testApiConnection={testApiConnection}
+                  testingApi={testingApi}
+                />
+              ) : null}
               {activeView === "history" ? <HistoryView history={history} refreshHistory={refreshHistory} /> : null}
               {activeView === "updates" ? <UpdatesView /> : null}
             </Stack>
@@ -331,10 +352,16 @@ export function MainShell() {
 
 function SettingsView({
   settings,
-  saveSettings
+  saveSettings,
+  apiResult,
+  testApiConnection,
+  testingApi
 }: {
   settings: AppSettings;
   saveSettings: (patch: Partial<AppSettings>) => Promise<void>;
+  apiResult: ServiceResult | null;
+  testApiConnection: () => Promise<void>;
+  testingApi: boolean;
 }) {
   const [draft, setDraft] = useState(settings);
 
@@ -415,6 +442,14 @@ function SettingsView({
             onChange={(event) => setDraft({ ...draft, apiProxyUrl: event.currentTarget.value })}
             onBlur={() => void saveSettings({ apiProxyUrl: draft.apiProxyUrl })}
           />
+          <Group justify="space-between" align="center">
+            <Text size="sm" c={apiResult?.ok === false ? "red" : "dimmed"}>
+              {apiResult?.message ?? "Test the configured OpenAI-compatible endpoint before capture."}
+            </Text>
+            <Button variant="outline" loading={testingApi} onClick={() => void testApiConnection()}>
+              Test connection
+            </Button>
+          </Group>
         </Stack>
       </Paper>
 
@@ -507,9 +542,21 @@ function HistoryView({ history, refreshHistory }: { history: HistoryItem[]; refr
                   size="xs"
                   leftSection={<IconRefresh size={14} />}
                   disabled={!item.sourceText}
-                  onClick={() => window.shotTranslate.retryHistoryItem(item.id)}
+                  onClick={() => window.shotTranslate.retryHistoryItem(item.id, item.sourceText)}
                 >
                   Retry
+                </Button>
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  color="red"
+                  leftSection={<IconTrash size={14} />}
+                  onClick={async () => {
+                    await window.shotTranslate.deleteHistoryItem(item.id);
+                    await refreshHistory();
+                  }}
+                >
+                  Delete
                 </Button>
                 <Button
                   variant="subtle"
@@ -562,6 +609,7 @@ function UpdatesView() {
             </Text>
             <SegmentedControl
               value={updateState?.source ?? "mirror"}
+              disabled={updateState?.isChecking || updateState?.isDownloading}
               onChange={(value) => {
                 void UpdateService.setSource(value as UpdateSource);
               }}
