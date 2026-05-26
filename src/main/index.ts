@@ -8,7 +8,8 @@ import {
   globalShortcut,
   ipcMain,
   nativeImage,
-  screen
+  screen,
+  type Display
 } from "electron";
 import type {
   AppEvent,
@@ -45,6 +46,7 @@ let tray: Tray | null = null;
 let mainWindow: BrowserWindow | null = null;
 let resultWindow: BrowserWindow | null = null;
 let captureWindows: BrowserWindow[] = [];
+let captureSourceCache = new Map<number, CaptureSourcePayload>();
 let workflowState: WorkflowState = "idle";
 const windowContexts = new Map<number, WindowContext>();
 
@@ -214,15 +216,11 @@ function closeCaptureWindows() {
   }
 
   captureWindows = [];
+  captureSourceCache.clear();
 }
 
-async function getCaptureSource(displayId: number): Promise<CaptureSourcePayload> {
-  const display = screen.getAllDisplays().find((item) => item.id === displayId);
-
-  if (!display) {
-    throw new Error(`Display ${displayId} was not found.`);
-  }
-
+async function buildCaptureSource(display: Display): Promise<CaptureSourcePayload> {
+  const displayId = display.id;
   const source = (
     await desktopCapturer.getSources({
       types: ["screen"],
@@ -259,6 +257,22 @@ async function getCaptureSource(displayId: number): Promise<CaptureSourcePayload
     width: thumbnail.getSize().width,
     height: thumbnail.getSize().height
   };
+}
+
+async function getCaptureSource(displayId: number): Promise<CaptureSourcePayload> {
+  const cached = captureSourceCache.get(displayId);
+
+  if (cached) {
+    return cached;
+  }
+
+  const display = screen.getAllDisplays().find((item) => item.id === displayId);
+
+  if (!display) {
+    throw new Error(`Display ${displayId} was not found.`);
+  }
+
+  return buildCaptureSource(display);
 }
 
 function openResultWindow(item: HistoryItem, anchor?: ScreenRect) {
@@ -337,8 +351,20 @@ async function startCaptureFlow() {
     return;
   }
 
-  setWorkflowState("capturing", "Select an area to capture");
+  setWorkflowState("capturing", "Preparing capture");
   const displays = screen.getAllDisplays();
+
+  try {
+    const sources = await Promise.all(displays.map((display) => buildCaptureSource(display)));
+    captureSourceCache = new Map(sources.map((source) => [source.displayId, source]));
+  } catch (error) {
+    log.error("Failed to prepare capture sources.", error);
+    captureSourceCache.clear();
+    setWorkflowState("idle");
+    return;
+  }
+
+  updateWorkflowStatus(true, "Select an area to capture");
   captureWindows = displays.map((display) => createCaptureWindow(display, setWindowContext));
 
   for (const window of captureWindows) {

@@ -34,7 +34,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
   const [source, setSource] = useState<CaptureSourcePayload | null>(null);
   const [dragStart, setDragStart] = useState<Point | null>(null);
   const [dragEnd, setDragEnd] = useState<Point | null>(null);
-  const [showReadyHint, setShowReadyHint] = useState(false);
+  const [pendingRect, setPendingRect] = useState<Rect | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -55,12 +55,6 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         }
 
         setSource(nextSource);
-        setShowReadyHint(true);
-        window.setTimeout(() => {
-          if (mounted) {
-            setShowReadyHint(false);
-          }
-        }, 1400);
       })
       .catch((error: unknown) => {
         if (!mounted) {
@@ -141,7 +135,18 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
     });
   }
 
-  const rect = dragStart && dragEnd ? normalizeRect(dragStart, dragEnd) : null;
+  useEffect(() => {
+    if (!source || !pendingRect) {
+      return;
+    }
+
+    const rect = pendingRect;
+    setPendingRect(null);
+    void submitSelection(rect);
+  }, [source, pendingRect]);
+
+  const activeRect = dragStart && dragEnd ? normalizeRect(dragStart, dragEnd) : null;
+  const rect = activeRect ?? pendingRect;
   const isReady = source !== null;
 
   return (
@@ -150,13 +155,8 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
       className="relative min-h-screen bg-cover bg-no-repeat cursor-crosshair"
       style={source ? { backgroundImage: `url(${source.dataUrl})` } : undefined}
       onMouseDown={(event) => {
-        if (!isReady) {
-          return;
-        }
-
         setDragStart({ x: event.clientX, y: event.clientY });
         setDragEnd({ x: event.clientX, y: event.clientY });
-        setShowReadyHint(false);
       }}
       onMouseMove={(event) => {
         if (!dragStart) {
@@ -173,20 +173,23 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         const nextRect = normalizeRect(dragStart, { x: event.clientX, y: event.clientY });
         setDragStart(null);
         setDragEnd(null);
-        await submitSelection(nextRect);
+
+        if (nextRect.width < 12 || nextRect.height < 12) {
+          await window.shotTranslate.cancelCapture();
+          return;
+        }
+
+        if (source) {
+          await submitSelection(nextRect);
+          return;
+        }
+
+        setPendingRect(nextRect);
       }}
     >
       {/* No dim overlay — matches Bob Translate. The crisp desktop image plus
           the crosshair cursor is signal enough that capture mode is active;
           dimming makes it harder to see what you're selecting. */}
-
-      {isReady && showReadyHint && !rect ? (
-        <div className="pointer-events-none absolute left-1/2 top-4 z-[4] -translate-x-1/2 rounded bg-slate-900/85 px-3 py-1.5 text-xs font-medium text-slate-50 shadow-lg transition-opacity">
-          拖拽选择区域，按 Esc 取消
-        </div>
-      ) : (
-        null
-      )}
 
       {rect ? (
         <>
