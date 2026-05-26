@@ -1,6 +1,7 @@
 node_modules
 out
 release
+.pnpm-store/
 
 # Build artifacts
 *.tsbuildinfo
@@ -25,4 +26,8 @@ Thumbs.db
 .env.local
 .env.*.local
 
-.claude/settings.local.json
+# Local tooling / agent workspace state
+.agents/
+.claude/
+.codex/
+.trellis/
