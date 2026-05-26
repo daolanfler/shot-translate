@@ -72,3 +72,36 @@ Tracked the project Trellis workflow scaffold, specs, scripts, and workspace ind
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Document shell environment preference
+
+**Date**: 2026-05-26
+**Task**: Document shell environment preference
+**Branch**: `codex-stability-improvements`
+
+### Summary
+
+Added the Windows shell preference to AGENTS.md: prefer Git Bash when available and use PowerShell only as a fallback or for Windows-specific semantics.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8010d68` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
