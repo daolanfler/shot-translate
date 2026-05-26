@@ -22,6 +22,10 @@ pnpm dist            # build + electron-builder NSIS installer → release/
 Run `pnpm build` after any change to main or preload code before testing the packaged flow.
 Run `pnpm typecheck` and `pnpm build` before handing off changes that touch main, preload, shared IPC types, or renderer IPC call sites.
 
+## Shell Environment
+
+On Windows, prefer **Git Bash** for shell commands when it is available. Use PowerShell only when Git Bash is unavailable or when a Windows-specific command requires PowerShell semantics.
+
 ## Architecture
 
 ### Process Boundary
