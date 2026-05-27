@@ -4,6 +4,8 @@ import type {
   AppSettings,
   CaptureSourcePayload,
   CaptureSubmitPayload,
+  E2eMockCaptureOptions,
+  E2eState,
   HistoryItem,
   ServiceResult,
   UpdateSettings,
@@ -61,5 +63,16 @@ const api = {
     };
   }
 };
+
+if (process.env.SHOT_TRANSLATE_E2E === "1") {
+  Object.assign(api, {
+    e2e: {
+      getState: () => ipcRenderer.invoke("e2e:getState") as Promise<E2eState>,
+      resetState: () => ipcRenderer.invoke("e2e:resetState") as Promise<boolean>,
+      mockCaptureSubmit: (options?: E2eMockCaptureOptions) =>
+        ipcRenderer.invoke("e2e:mockCaptureSubmit", options) as Promise<HistoryItem | null>
+    }
+  });
+}
 
 contextBridge.exposeInMainWorld("shotTranslate", api);

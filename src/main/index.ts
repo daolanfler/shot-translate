@@ -1,4 +1,8 @@
 import {
+  randomUUID
+} from "node:crypto";
+import path from "node:path";
+import {
   app,
   BrowserWindow,
   Menu,
@@ -16,6 +20,8 @@ import type {
   AppSettings,
   CaptureSourcePayload,
   CaptureSubmitPayload,
+  E2eMockCaptureOptions,
+  E2eState,
   HistoryItem,
   ScreenRect,
   ServiceResult,
@@ -28,9 +34,10 @@ import {
   flushHistory,
   getHistoryItem,
   listHistory,
+  resetHistoryForTests,
   updateHistoryItem
 } from "./services/history";
-import { getSettings, updateSettings } from "./services/settings";
+import { defaultSettings, getSettings, resetSettingsForTests, updateSettings } from "./services/settings";
 import { initLogger, log } from "./services/logger";
 import { recognizeText, terminateOcrWorker } from "./services/ocr";
 import { testTranslationConnection, toUserMessage, translateText } from "./services/translator";
@@ -39,15 +46,22 @@ import { createCaptureWindow } from "./windows/captureWindow";
 import { createMainWindow } from "./windows/mainWindow";
 import { createResultWindow } from "./windows/resultWindow";
 
-initLogger();
-
 type WorkflowState = "idle" | "capturing" | "processing";
+type OcrProgressCallback = (message: string) => void;
+
+const IS_E2E = process.env.SHOT_TRANSLATE_E2E === "1";
+const e2eUserDataDir = process.env.SHOT_TRANSLATE_USER_DATA_DIR;
+if (IS_E2E && e2eUserDataDir) {
+  app.setPath("userData", path.resolve(process.cwd(), e2eUserDataDir));
+}
 
 const remoteDebuggingPort = process.env.SHOT_TRANSLATE_REMOTE_DEBUGGING_PORT;
 if (remoteDebuggingPort) {
   app.commandLine.appendSwitch("remote-debugging-port", remoteDebuggingPort);
   app.commandLine.appendSwitch("remote-allow-origins", "*");
 }
+
+initLogger();
 
 let tray: Tray | null = null;
 let mainWindow: BrowserWindow | null = null;
@@ -56,6 +70,11 @@ let captureWindows: BrowserWindow[] = [];
 let captureSourceCache = new Map<number, CaptureSourcePayload>();
 let workflowState: WorkflowState = "idle";
 let updateService: UpdateService | null = null;
+let e2eMockCaptureOptions: Required<E2eMockCaptureOptions> = {
+  ocrText: "Hello world",
+  translatedText: "你好，世界",
+  translationError: ""
+};
 const windowContexts = new Map<number, WindowContext>();
 
 function setWorkflowState(next: WorkflowState, message?: string) {
@@ -216,12 +235,42 @@ async function updateSettingsSafely(patch: Partial<AppSettings>): Promise<{
   }
 
   const settings = await updateSettings(patch);
-  registerShortcut(settings);
+  if (!IS_E2E) {
+    registerShortcut(settings);
+  }
   return {
     settings,
     shortcutRegistered: true,
     message: "Settings saved."
   };
+}
+
+async function recognizeTextForWorkflow(imageDataUrl: string, languages: string[], onProgress: OcrProgressCallback) {
+  if (IS_E2E) {
+    onProgress("Mock OCR complete");
+    return {
+      text: e2eMockCaptureOptions.ocrText,
+      confidence: e2eMockCaptureOptions.ocrText ? 99 : 0
+    };
+  }
+
+  return recognizeText(imageDataUrl, languages, onProgress);
+}
+
+async function translateTextForWorkflow(text: string, settings: AppSettings) {
+  if (IS_E2E) {
+    if (e2eMockCaptureOptions.translationError) {
+      throw new Error(e2eMockCaptureOptions.translationError);
+    }
+
+    return {
+      translatedText: e2eMockCaptureOptions.translatedText,
+      sourceLanguage: "en",
+      elapsedMs: 1
+    };
+  }
+
+  return translateText(text, settings);
 }
 
 function closeCaptureWindows() {
@@ -311,7 +360,7 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
     });
     broadcast({ type: "history-updated" });
 
-    const ocr = await recognizeText(imageDataUrl, settings.ocrLanguages, (message) => {
+    const ocr = await recognizeTextForWorkflow(imageDataUrl, settings.ocrLanguages, (message) => {
       updateWorkflowStatus(true, message);
     });
 
@@ -334,7 +383,7 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
     openResultWindow(translating ?? item, selectionRect);
     updateWorkflowStatus(true, "Translating text");
 
-    const translated = await translateText(ocr.text, settings);
+    const translated = await translateTextForWorkflow(ocr.text, settings);
     const completed = updateHistoryItem(item.id, {
       sourceText: ocr.text,
       translatedText: translated.translatedText,
@@ -418,7 +467,7 @@ async function retryHistoryItem(id: string, sourceText?: string) {
   broadcast({ type: "history-updated" });
 
   try {
-    const translated = await translateText(nextSourceText, settings);
+    const translated = await translateTextForWorkflow(nextSourceText, settings);
     const completed = updateHistoryItem(id, {
       translatedText: translated.translatedText,
       sourceLanguage: translated.sourceLanguage,
@@ -459,6 +508,13 @@ function installIpcHandlers() {
     return result;
   });
   ipcMain.handle("settings:testApiConnection", async (_event, patch: Partial<AppSettings>): Promise<ServiceResult> => {
+    if (IS_E2E) {
+      return {
+        ok: true,
+        message: `Connected successfully with model ${patch.model ?? getSettings().model}.`
+      };
+    }
+
     const result = await testTranslationConnection({
       ...getSettings(),
       ...patch
@@ -538,6 +594,61 @@ function installIpcHandlers() {
     log.error(`[renderer] ${payload.message}`, payload.stack ?? "");
     return true;
   });
+
+  if (IS_E2E) {
+    ipcMain.handle("e2e:getState", (): E2eState => {
+      return {
+        workflowState,
+        windowCount: BrowserWindow.getAllWindows().length,
+        historyCount: listHistory().length,
+        settings: getSettings(),
+        history: listHistory()
+      };
+    });
+
+    ipcMain.handle("e2e:resetState", async () => {
+      closeCaptureWindows();
+      if (resultWindow && !resultWindow.isDestroyed()) {
+        resultWindow.close();
+      }
+      resultWindow = null;
+      setWorkflowState("idle");
+      e2eMockCaptureOptions = {
+        ocrText: "Hello world",
+        translatedText: "你好，世界",
+        translationError: ""
+      };
+      await clearHistory();
+      resetHistoryForTests();
+      resetSettingsForTests();
+      await updateSettings(defaultSettings);
+      return true;
+    });
+
+    ipcMain.handle("e2e:mockCaptureSubmit", async (_event, options?: E2eMockCaptureOptions) => {
+      e2eMockCaptureOptions = {
+        ocrText: options?.ocrText ?? "Hello world",
+        translatedText: options?.translatedText ?? "你好，世界",
+        translationError: options?.translationError ?? ""
+      };
+
+      setWorkflowState("processing", "Running mock capture");
+      await processCaptureResult(createE2eImageDataUrl(), {
+        x: 80,
+        y: 80,
+        width: 360,
+        height: 180
+      });
+      return listHistory()[0] ?? null;
+    });
+  }
+}
+
+function createE2eImageDataUrl(): string {
+  const svg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="180"><rect width="360" height="180" fill="#f8fafc"/><text x="40" y="96" font-family="Arial" font-size="28" fill="#0f172a">${randomUUID()}</text></svg>`
+  );
+  return `data:image/svg+xml;charset=utf-8,${svg}`;
 }
 
 let quitting = false;
@@ -545,11 +656,15 @@ let cleaningUp = false;
 
 app.whenReady().then(() => {
   updateService = new UpdateService(() => mainWindow);
-  createTray();
+  if (!IS_E2E) {
+    createTray();
+  }
   installIpcHandlers();
   showMainWindow();
-  registerShortcut(getSettings());
-  updateService.startStartupCheck();
+  if (!IS_E2E) {
+    registerShortcut(getSettings());
+    updateService.startStartupCheck();
+  }
 
   app.on("activate", () => {
     showMainWindow();

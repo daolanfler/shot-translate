@@ -3,6 +3,8 @@ import type {
   AppSettings,
   CaptureSourcePayload,
   CaptureSubmitPayload,
+  E2eMockCaptureOptions,
+  E2eState,
   HistoryItem,
   ServiceResult,
   UpdateSettings,
@@ -42,6 +44,11 @@ declare global {
       reportRendererError: (payload: { message: string; stack?: string }) => Promise<boolean>;
       onAppEvent: (listener: (event: AppEvent) => void) => () => void;
       onUpdateStateChanged: (listener: (state: UpdateState) => void) => () => void;
+      e2e?: {
+        getState: () => Promise<E2eState>;
+        resetState: () => Promise<boolean>;
+        mockCaptureSubmit: (options?: E2eMockCaptureOptions) => Promise<HistoryItem | null>;
+      };
     };
   }
 }

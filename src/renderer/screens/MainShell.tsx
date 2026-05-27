@@ -265,6 +265,7 @@ export function MainShell() {
 
           <Stack gap={4} mt="md" style={{ flex: 1 }}>
             <NavLink
+              data-testid="nav-settings"
               label="Settings"
               leftSection={<IconSettings size={20} />}
               active={activeView === "settings"}
@@ -273,6 +274,7 @@ export function MainShell() {
               style={{ borderRadius: 8 }}
             />
             <NavLink
+              data-testid="nav-history"
               label="History"
               leftSection={<IconHistory size={20} />}
               active={activeView === "history"}
@@ -281,6 +283,7 @@ export function MainShell() {
               style={{ borderRadius: 8 }}
             />
             <NavLink
+              data-testid="nav-updates"
               label="Updates"
               leftSection={<IconWorld size={20} />}
               rightSection={
@@ -533,6 +536,11 @@ function HistoryView({ history, refreshHistory }: { history: HistoryItem[]; refr
               <Text size="sm" c="dimmed" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                 {item.sourceText || item.errorMessage || "No source text"}
               </Text>
+              {item.errorMessage ? (
+                <Text size="sm" c="red" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {item.errorMessage}
+                </Text>
+              ) : null}
               <Text size="sm" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                 {item.translatedText || "No translation yet"}
               </Text>

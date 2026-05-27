@@ -148,3 +148,17 @@ export interface AppEvent {
     message?: string;
   };
 }
+
+export interface E2eMockCaptureOptions {
+  ocrText?: string;
+  translatedText?: string;
+  translationError?: string;
+}
+
+export interface E2eState {
+  workflowState: "idle" | "capturing" | "processing";
+  windowCount: number;
+  historyCount: number;
+  settings: AppSettings;
+  history: HistoryItem[];
+}
