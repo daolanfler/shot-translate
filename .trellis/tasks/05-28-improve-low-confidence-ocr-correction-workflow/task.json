@@ -3,7 +3,7 @@
   "name": "improve-low-confidence-ocr-correction-workflow",
   "title": "Improve low-confidence OCR correction workflow",
   "description": "Surface OCR confidence and make low-confidence recognition easy to review, edit, and retry translation.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

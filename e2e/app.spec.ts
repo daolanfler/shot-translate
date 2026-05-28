@@ -149,3 +149,35 @@ test("shows OCR and translation failure states with mocks", async ({ mainWindow 
   await expect(mainWindow).toHaveURL(/#\/history$/);
   await expect(mainWindow.getByText("Mock translation failed")).toBeVisible();
 });
+
+test("marks low-confidence OCR and allows source correction", async ({ mainWindow, electronApp }) => {
+  await mainWindow.evaluate(() =>
+    window.shotTranslate.e2e!.mockCaptureSubmit({
+      ocrText: "H3llo wor1d",
+      ocrConfidence: 42,
+      translatedText: "你好，世界"
+    })
+  );
+
+  await expect.poll(async () => {
+    const state = await mainWindow.evaluate(() => window.shotTranslate.e2e!.getState());
+    return state.history[0]?.status;
+  }).toBe("low_confidence");
+
+  const resultPage = await waitForResultPage(electronApp);
+  await expect(resultPage.getByText("OCR 置信度低，请核对原文")).toBeVisible();
+  await expect(resultPage.getByText("OCR 42%")).toBeVisible();
+
+  await resultPage.getByRole("button", { name: "编辑原文" }).click();
+  await resultPage.getByPlaceholder("暂无原文").fill("Hello world");
+  await resultPage.getByRole("button", { name: "重新翻译" }).click();
+
+  await expect.poll(async () => {
+    const state = await mainWindow.evaluate(() => window.shotTranslate.e2e!.getState());
+    return state.history[0]?.status;
+  }).toBe("success");
+
+  await mainWindow.getByTestId("nav-history").click();
+  await expect(mainWindow.getByText("OCR confidence")).toHaveCount(0);
+  await expect(mainWindow.getByText("Hello world")).toBeVisible();
+});

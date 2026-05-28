@@ -37,6 +37,7 @@ export type HistoryStatus =
   | "ocr_processing"
   | "ocr_failed"
   | "translating"
+  | "low_confidence"
   | "success"
   | "error";
 
@@ -88,6 +89,7 @@ export interface HistoryItem {
   sourceLanguage: string;
   targetLanguage: string;
   status: HistoryStatus;
+  ocrConfidence?: number;
   errorMessage?: string;
 }
 
@@ -171,6 +173,7 @@ export interface AppEvent {
 
 export interface E2eMockCaptureOptions {
   ocrText?: string;
+  ocrConfidence?: number;
   translatedText?: string;
   translationError?: string;
 }

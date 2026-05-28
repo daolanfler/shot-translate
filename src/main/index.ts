@@ -56,6 +56,7 @@ type WorkflowState = "idle" | "capturing" | "processing";
 type OcrProgressCallback = (message: string) => void;
 
 const IS_E2E = isE2eMode();
+const LOW_OCR_CONFIDENCE_THRESHOLD = 70;
 const e2eUserDataDir = process.env.SHOT_TRANSLATE_USER_DATA_DIR;
 if (IS_E2E && e2eUserDataDir) {
   app.setPath("userData", path.resolve(process.cwd(), e2eUserDataDir));
@@ -408,6 +409,7 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
 
     const translating = updateHistoryItem(item.id, {
       sourceText: ocr.text,
+      ocrConfidence: ocr.confidence,
       status: "translating",
       errorMessage: undefined
     });
@@ -421,7 +423,8 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
       translatedText: translated.translatedText,
       sourceLanguage: translated.sourceLanguage,
       targetLanguage: settings.targetLanguage,
-      status: "success",
+      status: ocr.confidence < LOW_OCR_CONFIDENCE_THRESHOLD ? "low_confidence" : "success",
+      ocrConfidence: ocr.confidence,
       errorMessage: undefined
     });
     broadcast({ type: "history-updated" });
@@ -493,6 +496,7 @@ async function retryHistoryItem(id: string, sourceText?: string) {
   updateHistoryItem(id, {
     sourceText: nextSourceText,
     translatedText: "",
+    ocrConfidence: undefined,
     status: "translating",
     errorMessage: undefined
   });
@@ -504,7 +508,8 @@ async function retryHistoryItem(id: string, sourceText?: string) {
       translatedText: translated.translatedText,
       sourceLanguage: translated.sourceLanguage,
       targetLanguage: settings.targetLanguage,
-      status: "success"
+      status: "success",
+      ocrConfidence: undefined
     });
 
     broadcast({ type: "history-updated" });

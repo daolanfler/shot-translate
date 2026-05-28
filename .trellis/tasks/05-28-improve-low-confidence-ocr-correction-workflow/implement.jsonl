@@ -1,1 +1,3 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "OCR confidence touches OCR workflow, history persistence, shared IPC types, and renderer result/history views."}
+{"file": ".trellis/spec/frontend/ipc-electron.md", "reason": "The correction flow uses existing preload IPC calls and must not widen the bridge."}
+{"file": ".trellis/spec/frontend/components.md", "reason": "Result and history UI should preserve semantic controls and readable status display."}

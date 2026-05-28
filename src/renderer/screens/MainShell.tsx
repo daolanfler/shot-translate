@@ -105,6 +105,8 @@ function statusLabel(status: HistoryItem["status"]): string {
       return "OCR failed";
     case "translating":
       return "Translating";
+    case "low_confidence":
+      return "Review OCR";
     case "success":
       return "Done";
     case "error":
@@ -118,6 +120,8 @@ function historyBadgeColor(status: HistoryItem["status"]): string {
   switch (status) {
     case "success":
       return "green";
+    case "low_confidence":
+      return "yellow";
     case "error":
     case "ocr_failed":
       return "red";
@@ -622,6 +626,11 @@ function HistoryView({ history, refreshHistory }: { history: HistoryItem[]; refr
               {item.errorMessage ? (
                 <Text size="sm" c="red" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                   {item.errorMessage}
+                </Text>
+              ) : null}
+              {item.ocrConfidence !== undefined ? (
+                <Text size="xs" c={item.status === "low_confidence" ? "yellow.8" : "dimmed"}>
+                  OCR confidence {Math.round(item.ocrConfidence)}%
                 </Text>
               ) : null}
               <Text size="sm" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>

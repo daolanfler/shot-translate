@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import {
+  IconAlertTriangle,
   IconCheck,
   IconClipboard,
   IconLoader2,
@@ -26,6 +27,10 @@ function statusText(item: HistoryItem) {
 
   if (item.status === "success") {
     return "翻译完成";
+  }
+
+  if (item.status === "low_confidence") {
+    return "OCR 置信度低，请核对原文";
   }
 
   if (item.status === "ocr_failed") {
@@ -74,6 +79,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
   }
 
   const hasError = item.status === "error" || item.status === "ocr_failed";
+  const hasLowConfidence = item.status === "low_confidence";
   const isBusy = isBusyStatus(item.status);
   const hasSource = sourceDraft.trim().length > 0 || item.sourceText.trim().length > 0;
   const canRetry = hasSource && !isBusy;
@@ -143,10 +149,22 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
             <span
               className={cn(
                 "grid size-8 place-items-center rounded-xl",
-                hasError ? "bg-red-50 text-red-600" : isBusy ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
+                hasError
+                  ? "bg-red-50 text-red-600"
+                  : hasLowConfidence
+                    ? "bg-yellow-50 text-yellow-700"
+                    : isBusy
+                      ? "bg-blue-50 text-blue-600"
+                      : "bg-emerald-50 text-emerald-600"
               )}
             >
-              {isBusy ? <IconLoader2 className="size-4 animate-spin" /> : <IconCheck className="size-4" />}
+              {isBusy ? (
+                <IconLoader2 className="size-4 animate-spin" />
+              ) : hasLowConfidence ? (
+                <IconAlertTriangle className="size-4" />
+              ) : (
+                <IconCheck className="size-4" />
+              )}
             </span>
             <div>
               <p className="text-sm font-semibold">截图翻译</p>
@@ -169,6 +187,16 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
           <div className="rounded-2xl bg-slate-50 px-4 py-3">
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-xs font-semibold text-muted-foreground">原文</p>
+              {item.ocrConfidence !== undefined ? (
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-xs font-medium",
+                    hasLowConfidence ? "bg-yellow-100 text-yellow-800" : "bg-slate-200 text-slate-600"
+                  )}
+                >
+                  OCR {Math.round(item.ocrConfidence)}%
+                </span>
+              ) : null}
               {!editingSource && item.sourceText ? (
                 <Button variant="ghost" size="xs" disabled={isBusy} onClick={() => setEditingSource(true)}>
                   <IconPencil className="size-3" />
@@ -257,7 +285,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                 <IconClipboard className="size-3.5" />
                 复制原文
               </Button>
-              {hasError && hasSource ? (
+              {(hasError || hasLowConfidence) && hasSource ? (
                 <Button
                   variant="outline"
                   size="sm"
