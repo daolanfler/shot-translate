@@ -1,1 +1,5 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/quality.md", "reason": "Settings service and test quality guidance."}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Renderer settings UI conventions."}
+{"file": ".trellis/spec/shared/code-quality.md", "reason": "Shared code quality constraints for settings and UI changes."}
+{"file": ".trellis/spec/shared/typescript.md", "reason": "Shared settings type and profile union typing."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "OCR profile settings flow crosses shared types, main persistence, and renderer UI."}

@@ -1,5 +1,5 @@
 import { app, safeStorage } from "electron";
-import type { AppSettings } from "../../shared/types";
+import type { AppSettings, OcrLanguageProfile, OcrPreprocessingSettings } from "../../shared/types";
 import { readJsonFile, writeJsonFile } from "./store";
 
 const SETTINGS_FILE = "settings.json";
@@ -10,6 +10,7 @@ export const defaultSettings: AppSettings = {
   shortcut: "Alt+S",
   targetLanguage: "zh-CN",
   ocrLanguages: ["eng", "chi_sim"],
+  ocrLanguageProfile: "zh-en",
   ocrPreprocessing: {
     enabled: false,
     upscale: 1,
@@ -72,6 +73,50 @@ function encryptApiKeyForStorage(plaintext: string): string {
   return ENCRYPTED_PREFIX + buf.toString("base64");
 }
 
+const ocrLanguageProfiles: Record<Exclude<OcrLanguageProfile, "manual">, string[]> = {
+  "zh-en": ["eng", "chi_sim"],
+  english: ["eng"],
+  cjk: ["eng", "chi_sim", "chi_tra", "jpn", "kor"]
+};
+
+function normalizeOcrLanguages(languages: string[] | undefined): string[] {
+  const trimmed = (languages ?? defaultSettings.ocrLanguages).map((language) => language.trim()).filter(Boolean);
+  return trimmed.length > 0 ? Array.from(new Set(trimmed)).sort() : ["eng"];
+}
+
+function inferOcrLanguageProfile(languages: string[]): OcrLanguageProfile {
+  const key = languages.join("+");
+  const match = Object.entries(ocrLanguageProfiles).find(([, profileLanguages]) => {
+    return normalizeOcrLanguages(profileLanguages).join("+") === key;
+  });
+
+  return (match?.[0] as OcrLanguageProfile | undefined) ?? "manual";
+}
+
+function normalizeOcrPreprocessing(raw: Partial<OcrPreprocessingSettings> | undefined): OcrPreprocessingSettings {
+  return {
+    ...defaultSettings.ocrPreprocessing,
+    ...raw,
+    threshold: {
+      ...defaultSettings.ocrPreprocessing.threshold,
+      ...raw?.threshold
+    }
+  };
+}
+
+function normalizeSettings(raw: Partial<AppSettings>): AppSettings {
+  const ocrLanguages = normalizeOcrLanguages(raw.ocrLanguages);
+  const ocrLanguageProfile = raw.ocrLanguageProfile ?? inferOcrLanguageProfile(ocrLanguages);
+
+  return {
+    ...defaultSettings,
+    ...raw,
+    ocrLanguages,
+    ocrLanguageProfile,
+    ocrPreprocessing: normalizeOcrPreprocessing(raw.ocrPreprocessing)
+  };
+}
+
 async function persistSettings(plaintext: AppSettings): Promise<void> {
   await writeJsonFile(SETTINGS_FILE, {
     ...plaintext,
@@ -89,8 +134,7 @@ export function getSettings(): AppSettings {
   const isLegacyPlaintext = storedApiKey.length > 0 && !storedApiKey.startsWith(ENCRYPTED_PREFIX);
 
   cachedSettings = {
-    ...defaultSettings,
-    ...raw,
+    ...normalizeSettings(raw),
     apiKey: decryptApiKey(storedApiKey)
   };
 
@@ -107,10 +151,10 @@ export function getSettings(): AppSettings {
 }
 
 export async function updateSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
-  cachedSettings = {
+  cachedSettings = normalizeSettings({
     ...getSettings(),
     ...patch
-  };
+  });
 
   if (process.env.SHOT_TRANSLATE_E2E !== "1") {
     app.setLoginItemSettings({

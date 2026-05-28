@@ -13,10 +13,10 @@ Turn OCR language selection into practical profiles that balance recognition qua
 
 ## Acceptance Criteria
 
-* Defaults are optimized for the app's expected Chinese/English screenshot translation use case.
-* Settings UI communicates the performance/quality tradeoff clearly.
-* Existing settings migrate safely to the new profile model or remain compatible.
-* Tests cover settings persistence and provider language input.
+* [x] Defaults are optimized for the app's expected Chinese/English screenshot translation use case.
+* [x] Settings UI communicates the performance/quality tradeoff clearly.
+* [x] Existing settings migrate safely to the new profile model or remain compatible.
+* [x] Tests cover settings persistence and provider language input.
 
 ## Out of Scope
 

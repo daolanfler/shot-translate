@@ -36,7 +36,15 @@ import {
   IconWorld
 } from "@tabler/icons-react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import type { AppEvent, AppSettings, HistoryItem, ServiceResult, UpdateSource, UpdateStatus } from "../../shared/types";
+import type {
+  AppEvent,
+  AppSettings,
+  HistoryItem,
+  OcrLanguageProfile,
+  ServiceResult,
+  UpdateSource,
+  UpdateStatus
+} from "../../shared/types";
 import { useUpdateState } from "../hooks/useUpdateState";
 import { UpdateService } from "../services/UpdateService";
 
@@ -55,6 +63,38 @@ const ocrLanguageOptions = [
   { value: "kor", label: "Korean" },
   { value: "fra", label: "French" },
   { value: "deu", label: "German" }
+];
+
+const ocrLanguageProfiles: Array<{
+  value: OcrLanguageProfile;
+  label: string;
+  description: string;
+  languages: string[];
+}> = [
+  {
+    value: "zh-en",
+    label: "Chinese + English",
+    description: "Best default for Chinese/English screenshots.",
+    languages: ["eng", "chi_sim"]
+  },
+  {
+    value: "english",
+    label: "English only",
+    description: "Fastest option for English UI text.",
+    languages: ["eng"]
+  },
+  {
+    value: "cjk",
+    label: "CJK mixed",
+    description: "Broader Chinese/Japanese/Korean coverage, slower.",
+    languages: ["eng", "chi_sim", "chi_tra", "jpn", "kor"]
+  },
+  {
+    value: "manual",
+    label: "Manual",
+    description: "Choose exact Tesseract language packs.",
+    languages: []
+  }
 ];
 
 function statusLabel(status: HistoryItem["status"]): string {
@@ -468,7 +508,7 @@ function SettingsView({
           Languages
         </Title>
         <Text size="sm" c="dimmed" mb="md">
-          Choose the translation target and OCR packs loaded by Tesseract.
+          Choose the translation target and OCR profile loaded by Tesseract.
         </Text>
 
         <Stack gap="md">
@@ -478,16 +518,52 @@ function SettingsView({
             value={settings.targetLanguage}
             onChange={(value) => value && void saveSettings({ targetLanguage: value })}
           />
+          <SegmentedControl
+            aria-label="OCR language profile"
+            data={ocrLanguageProfiles.map((profile) => ({
+              value: profile.value,
+              label: profile.label
+            }))}
+            value={settings.ocrLanguageProfile}
+            onChange={(value) => {
+              const profile = ocrLanguageProfiles.find((candidate) => candidate.value === value);
+              if (!profile) {
+                return;
+              }
+
+              void saveSettings({
+                ocrLanguageProfile: profile.value,
+                ...(profile.value === "manual" ? {} : { ocrLanguages: profile.languages })
+              });
+            }}
+          />
+          <Text size="xs" c="dimmed">
+            {ocrLanguageProfiles.find((profile) => profile.value === settings.ocrLanguageProfile)?.description}
+          </Text>
           <Checkbox.Group
             label="OCR languages"
+            description={
+              settings.ocrLanguageProfile === "manual"
+                ? "Manual mode lets you choose exact packs. More languages can slow recognition."
+                : "Preset profiles manage OCR packs automatically. Switch to Manual to customize."
+            }
             value={settings.ocrLanguages}
+            readOnly={settings.ocrLanguageProfile !== "manual"}
             onChange={(value) => {
-              void saveSettings({ ocrLanguages: value.length > 0 ? value : ["eng"] });
+              void saveSettings({
+                ocrLanguageProfile: "manual",
+                ocrLanguages: value.length > 0 ? value : ["eng"]
+              });
             }}
           >
             <Group mt="xs">
               {ocrLanguageOptions.map((option) => (
-                <Checkbox key={option.value} value={option.value} label={option.label} />
+                <Checkbox
+                  key={option.value}
+                  value={option.value}
+                  label={option.label}
+                  disabled={settings.ocrLanguageProfile !== "manual"}
+                />
               ))}
             </Group>
           </Checkbox.Group>

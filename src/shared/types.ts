@@ -1,5 +1,7 @@
 export type ApiProvider = "openai-compatible";
 
+export type OcrLanguageProfile = "zh-en" | "english" | "cjk" | "manual";
+
 export type UpdateSource = "mirror" | "github";
 
 export type UpdateStatus =
@@ -47,6 +49,7 @@ export interface AppSettings {
    * triggers a clean rebuild.
    */
   ocrLanguages: string[];
+  ocrLanguageProfile: OcrLanguageProfile;
   ocrPreprocessing: OcrPreprocessingSettings;
   apiProvider: ApiProvider;
   apiBaseUrl: string;
