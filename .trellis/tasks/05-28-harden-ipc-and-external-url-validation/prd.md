@@ -6,17 +6,17 @@ Improve Electron security and robustness by validating critical IPC payloads at 
 
 ## Requirements
 
-* Add runtime validation for settings updates, capture submit payloads, history retry inputs, result window movement, and update source changes.
-* Return clear user-safe errors for invalid payloads without crashing the app.
-* Restrict external URL opening to safe protocols such as `https:` and `mailto:`.
-* Keep the preload API narrow and avoid exposing privileged primitives.
+* [x] Add runtime validation for settings updates, capture submit payloads, history retry inputs, result window movement, and update source changes.
+* [x] Return clear user-safe errors for invalid payloads without crashing the app.
+* [x] Restrict external URL opening to safe protocols such as `https:` and `mailto:`.
+* [x] Keep the preload API narrow and avoid exposing privileged primitives.
 
 ## Acceptance Criteria
 
-* Invalid IPC payloads are rejected in main process before reaching service logic.
-* Valid existing renderer flows continue to work.
-* Unsafe external URLs are denied instead of passed to the OS.
-* Tests cover representative valid and invalid payloads.
+* [x] Invalid IPC payloads are rejected in main process before reaching service logic.
+* [x] Valid existing renderer flows continue to work.
+* [x] Unsafe external URLs are denied instead of passed to the OS.
+* [x] Tests cover representative valid and invalid payloads.
 
 ## Out of Scope
 

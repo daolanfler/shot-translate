@@ -3,7 +3,7 @@
   "name": "harden-ipc-and-external-url-validation",
   "title": "Harden IPC and external URL validation",
   "description": "Add runtime validation for critical IPC payloads and restrict external URL opening to safe protocols.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

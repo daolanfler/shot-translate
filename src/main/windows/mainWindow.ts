@@ -1,6 +1,7 @@
 import path from "node:path";
-import { BrowserWindow, shell } from "electron";
+import { BrowserWindow } from "electron";
 import type { WindowContext } from "../../shared/types";
+import { openAllowedExternalUrl } from "./externalUrl";
 
 function buildUrl(hash: string) {
   const devUrl = process.env.ELECTRON_RENDERER_URL;
@@ -32,7 +33,7 @@ export function createMainWindow(onReady: (window: BrowserWindow, context: Windo
   window.loadURL(buildUrl("#/"));
 
   window.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    openAllowedExternalUrl(url);
     return { action: "deny" };
   });
 

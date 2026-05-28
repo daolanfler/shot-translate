@@ -1,1 +1,3 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/ipc-electron.md", "reason": "IPC validation work must preserve the narrow contextBridge surface and main-process ownership of privileged behavior."}
+{"file": ".trellis/spec/frontend/electron-browser-api-restrictions.md", "reason": "External URL opening restrictions align with Electron/browser API safety guidance."}
+{"file": ".trellis/spec/shared/code-quality.md", "reason": "Runtime validators and tests should follow shared type-safety and error-handling rules."}

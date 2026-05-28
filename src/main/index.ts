@@ -38,6 +38,16 @@ import { recognizeText, terminateOcrWorker } from "./services/ocr";
 import { testTranslationConnection, toUserMessage, translateText } from "./services/translator";
 import { E2eHarness, isE2eMode } from "./testing/e2eHarness";
 import { UpdateService } from "./services/updateService";
+import {
+  validateCaptureSubmitPayload,
+  validateClipboardText,
+  validateHistoryId,
+  validateRendererError,
+  validateResultWindowMovePayload,
+  validateRetrySourceText,
+  validateSettingsPatch,
+  validateUpdateSource
+} from "./ipcValidation";
 import { createCaptureWindow } from "./windows/captureWindow";
 import { createMainWindow } from "./windows/mainWindow";
 import { createResultWindow } from "./windows/resultWindow";
@@ -517,8 +527,8 @@ function installIpcHandlers() {
   });
 
   ipcMain.handle("settings:get", () => getSettings());
-  ipcMain.handle("settings:update", async (_event, patch: Partial<AppSettings>) => {
-    const result = await updateSettingsSafely(patch);
+  ipcMain.handle("settings:update", async (_event, patch: unknown) => {
+    const result = await updateSettingsSafely(validateSettingsPatch(patch));
 
     broadcast({
       type: "settings-updated",
@@ -529,14 +539,15 @@ function installIpcHandlers() {
 
     return result;
   });
-  ipcMain.handle("settings:testApiConnection", async (_event, patch: Partial<AppSettings>): Promise<ServiceResult> => {
+  ipcMain.handle("settings:testApiConnection", async (_event, patch: unknown): Promise<ServiceResult> => {
+    const validatedPatch = validateSettingsPatch(patch);
     if (e2eHarness) {
-      return e2eHarness.testApiConnection(patch);
+      return e2eHarness.testApiConnection(validatedPatch);
     }
 
     const result = await testTranslationConnection({
       ...getSettings(),
-      ...patch
+      ...validatedPatch
     });
 
     if (!result.ok) {
@@ -547,18 +558,20 @@ function installIpcHandlers() {
   });
 
   ipcMain.handle("history:list", () => listHistory());
-  ipcMain.handle("history:get", (_event, id: string) => getHistoryItem(id));
+  ipcMain.handle("history:get", (_event, id: unknown) => getHistoryItem(validateHistoryId(id)));
   ipcMain.handle("history:clear", async () => {
     await clearHistory();
     broadcast({ type: "history-updated" });
     return listHistory();
   });
-  ipcMain.handle("history:delete", async (_event, id: string) => {
-    await deleteHistoryItem(id);
+  ipcMain.handle("history:delete", async (_event, id: unknown) => {
+    await deleteHistoryItem(validateHistoryId(id));
     broadcast({ type: "history-updated" });
     return listHistory();
   });
-  ipcMain.handle("history:retry", (_event, id: string, sourceText?: string) => retryHistoryItem(id, sourceText));
+  ipcMain.handle("history:retry", (_event, id: unknown, sourceText?: unknown) =>
+    retryHistoryItem(validateHistoryId(id), validateRetrySourceText(sourceText))
+  );
 
   ipcMain.handle("updates:get-state", () => {
     return requireUpdateService().getState();
@@ -568,8 +581,8 @@ function installIpcHandlers() {
     return requireUpdateService().getSettings();
   });
 
-  ipcMain.handle("updates:set-source", (_event, source: string) => {
-    return requireUpdateService().setSource(source);
+  ipcMain.handle("updates:set-source", (_event, source: unknown) => {
+    return requireUpdateService().setSource(validateUpdateSource(source));
   });
 
   ipcMain.handle("updates:check", () => {
@@ -586,13 +599,20 @@ function installIpcHandlers() {
   });
 
   ipcMain.handle("capture:start", () => startCaptureFlow());
-  ipcMain.handle("capture:source", (_event, displayId: number) => getCaptureSource(displayId));
-  ipcMain.handle("capture:submit", async (_event, payload: CaptureSubmitPayload) => {
+  ipcMain.handle("capture:source", (_event, displayId: unknown) => {
+    if (typeof displayId !== "number" || !Number.isInteger(displayId)) {
+      throw new Error("displayId must be an integer.");
+    }
+
+    return getCaptureSource(displayId);
+  });
+  ipcMain.handle("capture:submit", async (_event, payload: unknown) => {
+    const validatedPayload = validateCaptureSubmitPayload(payload);
     // Transition before close so the window.closed listener sees "processing"
     // and does not reset to idle.
     setWorkflowState("processing", "Running OCR");
     closeCaptureWindows();
-    await processCaptureResult(payload.imageDataUrl, payload.selectionRect);
+    await processCaptureResult(validatedPayload.imageDataUrl, validatedPayload.selectionRect);
     return true;
   });
   ipcMain.handle("capture:cancel", () => {
@@ -601,24 +621,25 @@ function installIpcHandlers() {
     return true;
   });
 
-  ipcMain.handle("clipboard:writeText", (_event, text: string) => {
-    clipboard.writeText(text);
+  ipcMain.handle("clipboard:writeText", (_event, text: unknown) => {
+    clipboard.writeText(validateClipboardText(text));
     return true;
   });
-  ipcMain.handle("result:move", (event, payload: ResultWindowMovePayload) => {
+  ipcMain.handle("result:move", (event, payload: unknown) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender);
     if (senderWindow !== resultWindow || getContextForSender(event.sender.id).type !== "result") {
       return false;
     }
 
-    return moveResultWindow(payload);
+    return moveResultWindow(validateResultWindowMovePayload(payload));
   });
   ipcMain.handle("result:close", (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close();
     return true;
   });
-  ipcMain.handle("log:rendererError", (_event, payload: { message: string; stack?: string }) => {
-    log.error(`[renderer] ${payload.message}`, payload.stack ?? "");
+  ipcMain.handle("log:rendererError", (_event, payload: unknown) => {
+    const rendererError = validateRendererError(payload);
+    log.error(`[renderer] ${rendererError.message}`, rendererError.stack ?? "");
     return true;
   });
 

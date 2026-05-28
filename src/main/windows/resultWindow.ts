@@ -2,6 +2,7 @@ import path from "node:path";
 import { BrowserWindow, screen } from "electron";
 import { clamp } from "../../shared/geometry";
 import type { ScreenRect, WindowContext } from "../../shared/types";
+import { openAllowedExternalUrl } from "./externalUrl";
 
 const WINDOW_WIDTH = 480;
 const WINDOW_HEIGHT = 390;
@@ -104,6 +105,10 @@ export function createResultWindow(
     }
   });
   window.loadURL(buildUrl("#/result"));
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    openAllowedExternalUrl(url);
+    return { action: "deny" };
+  });
 
   return window;
 }
