@@ -3,7 +3,7 @@
   "name": "add-image-preprocessing-pipeline-for-ocr",
   "title": "Add image preprocessing pipeline for OCR",
   "description": "Add a configurable preprocessing stage before OCR to improve screenshot recognition quality.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

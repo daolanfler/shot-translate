@@ -10,6 +10,15 @@ export const defaultSettings: AppSettings = {
   shortcut: "Alt+S",
   targetLanguage: "zh-CN",
   ocrLanguages: ["eng", "chi_sim"],
+  ocrPreprocessing: {
+    enabled: false,
+    upscale: 1,
+    grayscale: false,
+    contrast: 0,
+    threshold: {
+      enabled: false
+    }
+  },
   apiProvider: "openai-compatible",
   apiBaseUrl: "https://api.openai.com/v1",
   apiKey: "",

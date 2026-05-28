@@ -237,12 +237,17 @@ async function updateSettingsSafely(patch: Partial<AppSettings>): Promise<{
   };
 }
 
-async function recognizeTextForWorkflow(imageDataUrl: string, languages: string[], onProgress: OcrProgressCallback) {
+async function recognizeTextForWorkflow(
+  imageDataUrl: string,
+  languages: string[],
+  onProgress: OcrProgressCallback,
+  preprocessingOptions?: AppSettings["ocrPreprocessing"]
+) {
   if (e2eHarness) {
     return e2eHarness.recognizeText(onProgress);
   }
 
-  return recognizeText(imageDataUrl, languages, onProgress);
+  return recognizeText(imageDataUrl, languages, onProgress, preprocessingOptions);
 }
 
 async function translateTextForWorkflow(text: string, settings: AppSettings) {
@@ -372,9 +377,14 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
     });
     broadcast({ type: "history-updated" });
 
-    const ocr = await recognizeTextForWorkflow(imageDataUrl, settings.ocrLanguages, (message) => {
-      updateWorkflowStatus(true, message);
-    });
+    const ocr = await recognizeTextForWorkflow(
+      imageDataUrl,
+      settings.ocrLanguages,
+      (message) => {
+        updateWorkflowStatus(true, message);
+      },
+      settings.ocrPreprocessing
+    );
 
     if (!ocr.text) {
       const failed = updateHistoryItem(item.id, {

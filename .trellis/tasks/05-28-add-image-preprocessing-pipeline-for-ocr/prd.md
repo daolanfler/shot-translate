@@ -13,10 +13,10 @@ Improve screenshot OCR quality by adding a configurable preprocessing stage befo
 
 ## Acceptance Criteria
 
-* OCR receives the processed image through a single shared preprocessing path.
-* The pipeline can be disabled or configured without rewriting provider code.
-* Small text and low-contrast fixture cases have a testable improvement path.
-* Existing mocked E2E flow remains unaffected.
+* [x] OCR receives the processed image through a single shared preprocessing path.
+* [x] The pipeline can be disabled or configured without rewriting provider code.
+* [x] Small text and low-contrast fixture cases have a testable improvement path.
+* [x] Existing mocked E2E flow remains unaffected.
 
 ## Out of Scope
 

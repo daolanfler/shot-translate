@@ -1,4 +1,5 @@
 import type { OcrResult } from "../../shared/types";
+import { preprocessImageForOcr, type ImagePreprocessingOptions } from "./imagePreprocessing";
 import { DEFAULT_OCR_PROVIDER_ID, TesseractOcrProvider, type OcrProvider } from "./ocrProvider";
 
 export { DEFAULT_OCR_PROVIDER_ID };
@@ -24,11 +25,14 @@ export async function resetOcrProviderForTests(): Promise<void> {
 export async function recognizeText(
   imageDataUrl: string,
   languages: string[],
-  onStatus?: (message: string) => void
+  onStatus?: (message: string) => void,
+  preprocessingOptions?: Partial<ImagePreprocessingOptions>
 ): Promise<OcrResult> {
+  const preprocessed = await preprocessImageForOcr(imageDataUrl, preprocessingOptions);
+
   return getOcrProvider().recognize(
     {
-      imageDataUrl,
+      imageDataUrl: preprocessed.imageDataUrl,
       languages
     },
     (event) => {

@@ -47,6 +47,7 @@ export interface AppSettings {
    * triggers a clean rebuild.
    */
   ocrLanguages: string[];
+  ocrPreprocessing: OcrPreprocessingSettings;
   apiProvider: ApiProvider;
   apiBaseUrl: string;
   apiKey: string;
@@ -128,6 +129,17 @@ export interface ScreenRect {
   y: number;
   width: number;
   height: number;
+}
+
+export interface OcrPreprocessingSettings {
+  enabled: boolean;
+  upscale: 1 | 2 | 3;
+  grayscale: boolean;
+  contrast: number;
+  threshold: {
+    enabled: boolean;
+    value?: number;
+  };
 }
 
 export interface ResultWindowMovePayload {

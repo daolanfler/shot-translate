@@ -1,1 +1,5 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/quality.md", "reason": "Check main service quality and package validation expectations."}
+{"file": ".trellis/spec/shared/code-quality.md", "reason": "Check final code quality constraints before commit."}
+{"file": ".trellis/spec/shared/typescript.md", "reason": "Check shared settings type and exported function shapes."}
+{"file": ".trellis/tasks/05-28-add-image-preprocessing-pipeline-for-ocr/research/preprocessing-pipeline-placement.md", "reason": "Confirm implementation follows researched placement and default behavior."}
+{"file": ".trellis/tasks/05-28-add-image-preprocessing-pipeline-for-ocr/research/design-review-notes.md", "reason": "Confirm design review blockers have been addressed or explicitly deferred."}

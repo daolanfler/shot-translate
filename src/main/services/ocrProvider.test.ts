@@ -1,6 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TesseractOcrProvider, normaliseOcrLanguages, type OcrProvider } from "./ocrProvider";
 
+vi.mock("electron", () => ({
+  app: {
+    getPath: () => "test-user-data"
+  },
+  nativeImage: {
+    createFromDataURL: vi.fn(() => ({
+      isEmpty: () => false,
+      getSize: () => ({
+        width: 1,
+        height: 1
+      })
+    }))
+  }
+}));
+
 describe("normaliseOcrLanguages", () => {
   it("deduplicates, trims, sorts, and falls back to English", () => {
     expect(normaliseOcrLanguages([" eng ", "chi_sim", "eng", ""])).toEqual(["chi_sim", "eng"]);
