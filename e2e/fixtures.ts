@@ -34,9 +34,9 @@ export const test = base.extend<Fixtures>({
   },
 
   mainWindow: async ({ electronApp }, use) => {
-    const window = await electronApp.firstWindow();
-    await window.waitForLoadState("domcontentloaded");
-    await window.evaluate(async () => {
+    const page = await electronApp.firstWindow();
+    await page.waitForLoadState("domcontentloaded");
+    await page.evaluate(async () => {
       const api = window.shotTranslate.e2e;
       if (!api) {
         throw new Error("E2E API is not exposed.");
@@ -44,7 +44,7 @@ export const test = base.extend<Fixtures>({
 
       await api.resetState();
     });
-    await use(window);
+    await use(page);
   }
 });
 
