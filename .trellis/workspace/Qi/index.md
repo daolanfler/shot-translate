@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
+- **Total Sessions**: 6
 - **Last Active**: 2026-05-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~173 | Active |
+| `journal-1.md` | ~206 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 6 | 2026-05-28 | Update TODO after React Router work | `7ecc8e6` | `main` |
 | 5 | 2026-05-28 | Introduce React Router main window routes | `30c955e` | `main` |
 | 4 | 2026-05-26 | Document agent signature convention | `20a1a76` | `codex-stability-improvements` |
 | 3 | 2026-05-26 | Document shell environment preference | `8010d68` | `codex-stability-improvements` |

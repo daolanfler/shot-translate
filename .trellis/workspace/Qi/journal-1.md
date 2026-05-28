@@ -171,3 +171,36 @@ Added react-router-dom and HashRouter for the main Electron window, replaced Mai
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: Update TODO after React Router work
+
+**Date**: 2026-05-28
+**Task**: Update TODO after React Router work
+**Branch**: `main`
+
+### Summary
+
+Removed the completed React Router exercise from TODO.md and left the ResultWindow interaction follow-up as the remaining task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7ecc8e6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
