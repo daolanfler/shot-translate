@@ -21,6 +21,7 @@
 | [react-pitfalls.md](./react-pitfalls.md)                                       | Critical React patterns and common mistakes     | **Must Read** |
 | [state-management.md](./state-management.md)                                   | Auth context, layout, navigation patterns       | Reference     |
 | [components.md](./components.md)                                               | Semantic HTML, empty states, scrollbar patterns | Reference     |
+| [ui-dependencies.md](./ui-dependencies.md)                                     | Component, icon, and styling dependency choices | Reference     |
 | [hooks.md](./hooks.md)                                                         | Query and mutation hook patterns                | Reference     |
 | [type-safety.md](./type-safety.md)                                             | Types, import paths, module constants           | Reference     |
 | [directory-structure.md](./directory-structure.md)                             | Project structure conventions                   | Reference     |
@@ -46,6 +47,7 @@
 | Create custom hooks      | [hooks.md](./hooks.md)                       |
 | Manage application state | [state-management.md](./state-management.md) |
 | Build UI components      | [components.md](./components.md)             |
+| Choose UI dependencies   | [ui-dependencies.md](./ui-dependencies.md)   |
 | Ensure type safety       | [type-safety.md](./type-safety.md)           |
 
 ### Before Committing

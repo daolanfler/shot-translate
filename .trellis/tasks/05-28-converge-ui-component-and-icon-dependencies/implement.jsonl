@@ -1,1 +1,2 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/ui-dependencies.md", "reason": "Documents the chosen renderer component, icon, local primitive, and styling dependency direction implemented by this task."}
+{"file": ".trellis/tasks/05-28-converge-ui-component-and-icon-dependencies/research/ui-dependency-convergence.md", "reason": "Contains the dependency audit and migration order used for the cleanup."}

@@ -3,7 +3,7 @@
   "name": "converge-ui-component-and-icon-dependencies",
   "title": "Converge UI component and icon dependencies",
   "description": "Reduce overlapping UI and icon dependencies and align renderer components around a consistent design system.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

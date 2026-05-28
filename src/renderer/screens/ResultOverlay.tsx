@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { Check, ClipboardCopy, Loader2, Pencil, RotateCcw, X } from "lucide-react";
+import {
+  IconCheck,
+  IconClipboard,
+  IconLoader2,
+  IconPencil,
+  IconRefresh,
+  IconX
+} from "@tabler/icons-react";
 import type { HistoryItem } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -139,7 +146,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                 hasError ? "bg-red-50 text-red-600" : isBusy ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
               )}
             >
-              {isBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              {isBusy ? <IconLoader2 className="size-4 animate-spin" /> : <IconCheck className="size-4" />}
             </span>
             <div>
               <p className="text-sm font-semibold">截图翻译</p>
@@ -154,7 +161,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
             onClick={() => window.shotTranslate.closeResultWindow()}
             aria-label="关闭"
           >
-            <X className="size-4" />
+            <IconX className="size-4" />
           </Button>
         </header>
 
@@ -164,7 +171,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
               <p className="text-xs font-semibold text-muted-foreground">原文</p>
               {!editingSource && item.sourceText ? (
                 <Button variant="ghost" size="xs" disabled={isBusy} onClick={() => setEditingSource(true)}>
-                  <Pencil className="size-3" />
+                  <IconPencil className="size-3" />
                   编辑原文
                 </Button>
               ) : null}
@@ -187,7 +194,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
             <p className="mb-2 text-xs font-semibold text-muted-foreground">译文</p>
             {item.status === "translating" ? (
               <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin text-primary" />
+                <IconLoader2 className="size-4 animate-spin text-primary" />
                 正在翻译...
               </div>
             ) : (
@@ -232,7 +239,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                   setMessage(next ? "已重新提交翻译。" : "重新翻译失败。");
                 }}
               >
-                <RotateCcw className="size-3.5" />
+                <IconRefresh className="size-3.5" />
                 重新翻译
               </Button>
             </>
@@ -247,7 +254,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                   setMessage("已复制原文。");
                 }}
               >
-                <ClipboardCopy className="size-3.5" />
+                <IconClipboard className="size-3.5" />
                 复制原文
               </Button>
               {hasError && hasSource ? (
@@ -261,7 +268,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                     setMessage(next ? "已重新提交翻译。" : "重新翻译失败。");
                   }}
                 >
-                  <RotateCcw className="size-3.5" />
+                  <IconRefresh className="size-3.5" />
                   重新翻译
                 </Button>
               ) : null}
@@ -273,7 +280,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                   setMessage("已复制译文。");
                 }}
               >
-                <ClipboardCopy className="size-3.5" />
+                <IconClipboard className="size-3.5" />
                 复制译文
               </Button>
             </>

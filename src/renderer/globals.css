@@ -45,7 +45,7 @@
   --chart-4: oklch(0.83 0.19 85);
   --chart-5: oklch(0.77 0.19 70);
 
-  /* Sidebar tokens (shadcn convention) */
+  /* Overlay/error primitive tokens */
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.18 0.005 250);
   --sidebar-primary: oklch(0.55 0.18 250);
