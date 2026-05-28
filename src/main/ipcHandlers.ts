@@ -150,7 +150,16 @@ export function installIpcHandlers(deps: IpcHandlerDeps): void {
       throw new Error("Capture submission did not come from the selected display.");
     }
 
-    const imageDataUrl = await deps.cropCaptureSelection(validatedPayload);
+    let imageDataUrl: string;
+    try {
+      imageDataUrl = await deps.cropCaptureSelection(validatedPayload);
+    } catch (error) {
+      log.error("Capture submit failed while cropping the selected region.", error);
+      deps.closeCaptureWindows();
+      deps.setWorkflowState("idle");
+      return false;
+    }
+
     deps.setWorkflowState("processing", "Running OCR");
     deps.closeCaptureWindows();
     await deps.processCaptureResult(imageDataUrl, validatedPayload.selectionRect);

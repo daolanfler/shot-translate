@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/ipc-electron.md", "reason": "Verify capture submit failure handling does not widen renderer privileges."}
+{"file": ".trellis/spec/backend/quality.md", "reason": "Verify the fix has focused coverage and does not change unrelated behavior."}

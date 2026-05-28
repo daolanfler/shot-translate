@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/ipc-electron.md", "reason": "Capture submit stays behind the narrow preload IPC boundary and must preserve sender validation."}
+{"file": ".trellis/spec/backend/quality.md", "reason": "Main-process error handling should be explicit and scoped."}
