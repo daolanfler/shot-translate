@@ -13,10 +13,10 @@ Introduce a pluggable OCR provider boundary so the app can keep Tesseract.js as 
 
 ## Acceptance Criteria
 
-* Current capture-to-translation flow still works with the Tesseract provider.
-* Provider selection has a clear default and does not require user configuration for the existing path.
-* OCR worker cleanup remains available on app shutdown.
-* Unit or integration coverage verifies the provider boundary and fallback behavior.
+* [x] Current capture-to-translation flow still works with the Tesseract provider.
+* [x] Provider selection has a clear default and does not require user configuration for the existing path.
+* [x] OCR worker cleanup remains available on app shutdown.
+* [x] Unit or integration coverage verifies the provider boundary and fallback behavior.
 
 ## Out of Scope
 

@@ -3,7 +3,7 @@
   "name": "add-ocr-provider-abstraction",
   "title": "Add OCR provider abstraction",
   "description": "Introduce a pluggable OCR provider boundary while keeping Tesseract.js as the default fallback.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
