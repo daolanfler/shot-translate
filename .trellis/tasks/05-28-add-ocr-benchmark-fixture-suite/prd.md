@@ -13,10 +13,10 @@ Create a local OCR benchmark suite so OCR engine and preprocessing changes can b
 
 ## Acceptance Criteria
 
-* The suite can run locally without external network services.
-* Failures clearly identify which fixture and expectation regressed.
-* The benchmark can compare the current OCR implementation against future provider/preprocessing changes.
-* Test assets do not include private screenshots or sensitive data.
+* [x] The suite can run locally without external network services.
+* [x] Failures clearly identify which fixture and expectation regressed.
+* [x] The benchmark can compare the current OCR implementation against future provider/preprocessing changes.
+* [x] Test assets do not include private screenshots or sensitive data.
 
 ## Out of Scope
 

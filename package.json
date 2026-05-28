@@ -15,6 +15,8 @@
     "dist": "electron-vite build && electron-builder",
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
+    "ocr:bench": "electron scripts/ocr-benchmark.cjs",
+    "ocr:bench:real": "electron scripts/ocr-benchmark.cjs --run-ocr",
     "smoke:capture": "node scripts/smoke-capture.cjs"
   },
   "build": {
