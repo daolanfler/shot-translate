@@ -3,7 +3,7 @@
   "name": "introduce-zod-ipc-validation",
   "title": "Introduce Zod schemas for IPC payload validation",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
