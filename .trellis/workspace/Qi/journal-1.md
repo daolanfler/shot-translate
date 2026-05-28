@@ -204,3 +204,36 @@ Removed the completed React Router exercise from TODO.md and left the ResultWind
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: Improve result window interaction
+
+**Date**: 2026-05-28
+**Task**: Improve result window interaction
+**Branch**: `main`
+
+### Summary
+
+Made the result window resizable, added clamped header dragging through IPC, removed the completed TODO, and verified with typecheck/build/e2e.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `323a7ef` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
