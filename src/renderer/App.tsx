@@ -30,7 +30,9 @@ export function App() {
   if (context.type === "capture") {
     return (
       <MantineProvider theme={theme}>
-        <CaptureOverlay displayId={context.displayId} />
+        <div className="window-transparent-root">
+          <CaptureOverlay displayId={context.displayId} />
+        </div>
       </MantineProvider>
     );
   }
@@ -38,7 +40,9 @@ export function App() {
   if (context.type === "result") {
     return (
       <MantineProvider theme={theme}>
-        <ResultOverlay historyId={context.historyId} />
+        <div className="window-transparent-root">
+          <ResultOverlay historyId={context.historyId} />
+        </div>
       </MantineProvider>
     );
   }

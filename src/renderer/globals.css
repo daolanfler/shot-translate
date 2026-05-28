@@ -135,12 +135,18 @@
   body,
   #root {
     @apply h-full;
+    background: transparent;
   }
 
   body {
     @apply text-foreground font-sans antialiased;
     font-size: var(--text-base);
     line-height: var(--text-base--line-height);
+    background: transparent;
+  }
+
+  .window-transparent-root {
+    height: 100%;
     background: transparent;
   }
 }

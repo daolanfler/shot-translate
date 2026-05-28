@@ -70,8 +70,8 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
   const canRetry = hasSource && !isBusy;
 
   return (
-    <div className="grid h-full place-items-center bg-transparent p-4">
-      <section className="flex h-full max-h-[390px] w-full max-w-[480px] flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl">
+    <div className="grid h-full place-items-center bg-transparent">
+      <section className="flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl">
         <header
           className="flex items-center justify-between gap-2 border-b bg-white px-4 py-3"
           style={{ WebkitAppRegion: "drag" } as CSSProperties}
