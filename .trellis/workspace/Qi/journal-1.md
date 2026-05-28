@@ -303,3 +303,36 @@ Created a planning task for migrating IPC payload validators to Zod schemas with
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: Zod IPC validation and Codex Trellis assets
+
+**Date**: 2026-05-28
+**Task**: Zod IPC validation and Codex Trellis assets
+
+### Summary
+
+Migrated IPC payload validation to Zod schemas with expanded tests, then tracked Trellis Codex skills, agents, hooks, and config so new Codex App worktrees inherit finish-work and workflow assets.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c405309` | (see git log) |
+| `3884bca` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
