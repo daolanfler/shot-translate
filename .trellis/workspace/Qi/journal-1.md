@@ -237,3 +237,36 @@ Made the result window resizable, added clamped header dragging through IPC, rem
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Create optimization planning tasks
+
+**Date**: 2026-05-28
+**Task**: Create optimization planning tasks
+**Branch**: `main`
+
+### Summary
+
+Reviewed the Electron screenshot translation app and created nine Trellis planning tasks covering OCR providers, preprocessing, benchmarks, main-process refactoring, IPC hardening, screenshot crop ownership, OCR correction UX, language selection, and UI dependency convergence.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e3f417f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
