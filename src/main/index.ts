@@ -1,6 +1,3 @@
-import {
-  randomUUID
-} from "node:crypto";
 import path from "node:path";
 import {
   app,
@@ -20,8 +17,6 @@ import type {
   AppSettings,
   CaptureSourcePayload,
   CaptureSubmitPayload,
-  E2eMockCaptureOptions,
-  E2eState,
   HistoryItem,
   ScreenRect,
   ServiceResult,
@@ -34,13 +29,13 @@ import {
   flushHistory,
   getHistoryItem,
   listHistory,
-  resetHistoryForTests,
   updateHistoryItem
 } from "./services/history";
-import { defaultSettings, getSettings, resetSettingsForTests, updateSettings } from "./services/settings";
+import { getSettings, updateSettings } from "./services/settings";
 import { initLogger, log } from "./services/logger";
 import { recognizeText, terminateOcrWorker } from "./services/ocr";
 import { testTranslationConnection, toUserMessage, translateText } from "./services/translator";
+import { E2eHarness, isE2eMode } from "./testing/e2eHarness";
 import { UpdateService } from "./services/updateService";
 import { createCaptureWindow } from "./windows/captureWindow";
 import { createMainWindow } from "./windows/mainWindow";
@@ -49,7 +44,7 @@ import { createResultWindow } from "./windows/resultWindow";
 type WorkflowState = "idle" | "capturing" | "processing";
 type OcrProgressCallback = (message: string) => void;
 
-const IS_E2E = process.env.SHOT_TRANSLATE_E2E === "1";
+const IS_E2E = isE2eMode();
 const e2eUserDataDir = process.env.SHOT_TRANSLATE_USER_DATA_DIR;
 if (IS_E2E && e2eUserDataDir) {
   app.setPath("userData", path.resolve(process.cwd(), e2eUserDataDir));
@@ -70,11 +65,7 @@ let captureWindows: BrowserWindow[] = [];
 let captureSourceCache = new Map<number, CaptureSourcePayload>();
 let workflowState: WorkflowState = "idle";
 let updateService: UpdateService | null = null;
-let e2eMockCaptureOptions: Required<E2eMockCaptureOptions> = {
-  ocrText: "Hello world",
-  translatedText: "你好，世界",
-  translationError: ""
-};
+const e2eHarness = IS_E2E ? new E2eHarness() : null;
 const windowContexts = new Map<number, WindowContext>();
 
 function setWorkflowState(next: WorkflowState, message?: string) {
@@ -246,28 +237,16 @@ async function updateSettingsSafely(patch: Partial<AppSettings>): Promise<{
 }
 
 async function recognizeTextForWorkflow(imageDataUrl: string, languages: string[], onProgress: OcrProgressCallback) {
-  if (IS_E2E) {
-    onProgress("Mock OCR complete");
-    return {
-      text: e2eMockCaptureOptions.ocrText,
-      confidence: e2eMockCaptureOptions.ocrText ? 99 : 0
-    };
+  if (e2eHarness) {
+    return e2eHarness.recognizeText(onProgress);
   }
 
   return recognizeText(imageDataUrl, languages, onProgress);
 }
 
 async function translateTextForWorkflow(text: string, settings: AppSettings) {
-  if (IS_E2E) {
-    if (e2eMockCaptureOptions.translationError) {
-      throw new Error(e2eMockCaptureOptions.translationError);
-    }
-
-    return {
-      translatedText: e2eMockCaptureOptions.translatedText,
-      sourceLanguage: "en",
-      elapsedMs: 1
-    };
+  if (e2eHarness) {
+    return e2eHarness.translateText();
   }
 
   return translateText(text, settings);
@@ -346,6 +325,14 @@ function openResultWindow(item: HistoryItem, anchor?: ScreenRect) {
   }
 
   resultWindow = createResultWindow(item.id, setWindowContext, anchor);
+}
+
+function closeResultWindow() {
+  if (resultWindow && !resultWindow.isDestroyed()) {
+    resultWindow.close();
+  }
+
+  resultWindow = null;
 }
 
 async function processCaptureResult(imageDataUrl: string, selectionRect?: ScreenRect) {
@@ -508,11 +495,8 @@ function installIpcHandlers() {
     return result;
   });
   ipcMain.handle("settings:testApiConnection", async (_event, patch: Partial<AppSettings>): Promise<ServiceResult> => {
-    if (IS_E2E) {
-      return {
-        ok: true,
-        message: `Connected successfully with model ${patch.model ?? getSettings().model}.`
-      };
+    if (e2eHarness) {
+      return e2eHarness.testApiConnection(patch);
     }
 
     const result = await testTranslationConnection({
@@ -595,60 +579,13 @@ function installIpcHandlers() {
     return true;
   });
 
-  if (IS_E2E) {
-    ipcMain.handle("e2e:getState", (): E2eState => {
-      return {
-        workflowState,
-        windowCount: BrowserWindow.getAllWindows().length,
-        historyCount: listHistory().length,
-        settings: getSettings(),
-        history: listHistory()
-      };
-    });
-
-    ipcMain.handle("e2e:resetState", async () => {
-      closeCaptureWindows();
-      if (resultWindow && !resultWindow.isDestroyed()) {
-        resultWindow.close();
-      }
-      resultWindow = null;
-      setWorkflowState("idle");
-      e2eMockCaptureOptions = {
-        ocrText: "Hello world",
-        translatedText: "你好，世界",
-        translationError: ""
-      };
-      await clearHistory();
-      resetHistoryForTests();
-      resetSettingsForTests();
-      await updateSettings(defaultSettings);
-      return true;
-    });
-
-    ipcMain.handle("e2e:mockCaptureSubmit", async (_event, options?: E2eMockCaptureOptions) => {
-      e2eMockCaptureOptions = {
-        ocrText: options?.ocrText ?? "Hello world",
-        translatedText: options?.translatedText ?? "你好，世界",
-        translationError: options?.translationError ?? ""
-      };
-
-      setWorkflowState("processing", "Running mock capture");
-      await processCaptureResult(createE2eImageDataUrl(), {
-        x: 80,
-        y: 80,
-        width: 360,
-        height: 180
-      });
-      return listHistory()[0] ?? null;
-    });
-  }
-}
-
-function createE2eImageDataUrl(): string {
-  const svg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="180"><rect width="360" height="180" fill="#f8fafc"/><text x="40" y="96" font-family="Arial" font-size="28" fill="#0f172a">${randomUUID()}</text></svg>`
-  );
-  return `data:image/svg+xml;charset=utf-8,${svg}`;
+  e2eHarness?.installIpcHandlers({
+    getWorkflowState: () => workflowState,
+    setWorkflowState,
+    closeCaptureWindows,
+    closeResultWindow,
+    processCaptureResult
+  });
 }
 
 let quitting = false;

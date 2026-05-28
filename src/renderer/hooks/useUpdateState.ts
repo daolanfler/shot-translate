@@ -6,14 +6,8 @@ export function useUpdateState() {
   const [updateState, setUpdateState] = useState<UpdateState | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-
     UpdateService.getState()
-      .then((state) => {
-        if (mounted) {
-          setUpdateState(state);
-        }
-      })
+      .then(setUpdateState)
       .catch((error: unknown) => {
         console.error("[useUpdateState]", error);
       });
@@ -21,7 +15,6 @@ export function useUpdateState() {
     const unsubscribe = UpdateService.onStateChanged(setUpdateState);
 
     return () => {
-      mounted = false;
       unsubscribe();
     };
   }, []);
