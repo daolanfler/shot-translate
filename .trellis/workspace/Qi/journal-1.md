@@ -138,3 +138,36 @@ Added AGENTS.md guidance requiring Codex commits to include a co-author trailer 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: Introduce React Router main window routes
+
+**Date**: 2026-05-28
+**Task**: Introduce React Router main window routes
+**Branch**: `main`
+
+### Summary
+
+Added react-router-dom and HashRouter for the main Electron window, replaced MainShell local active view state with URL-driven Settings/History/Updates routes, updated E2E URL assertions, and documented the routing convention.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `30c955e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
