@@ -3,7 +3,7 @@
   "name": "refactor-main-process-workflow-boundaries",
   "title": "Refactor main process workflow boundaries",
   "description": "Split the oversized main process entrypoint into focused workflow, IPC, capture source, and shortcut modules.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
