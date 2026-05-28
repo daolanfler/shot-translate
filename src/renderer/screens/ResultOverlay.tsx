@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Check, ClipboardCopy, Loader2, Pencil, RotateCcw, X } from "lucide-react";
 import type { HistoryItem } from "../../shared/types";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,8 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
   const [sourceDraft, setSourceDraft] = useState("");
   const [editingSource, setEditingSource] = useState(false);
   const [message, setMessage] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const dragStateRef = useRef<{ pointerId: number; screenX: number; screenY: number } | null>(null);
 
   async function refresh() {
     const next = await window.shotTranslate.getHistoryItem(historyId);
@@ -69,12 +71,66 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
   const hasSource = sourceDraft.trim().length > 0 || item.sourceText.trim().length > 0;
   const canRetry = hasSource && !isBusy;
 
+  function startDrag(event: PointerEvent<HTMLElement>) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      screenX: event.screenX,
+      screenY: event.screenY
+    };
+    setDragging(true);
+  }
+
+  function moveDrag(event: PointerEvent<HTMLElement>) {
+    const dragState = dragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const deltaX = event.screenX - dragState.screenX;
+    const deltaY = event.screenY - dragState.screenY;
+    if (deltaX === 0 && deltaY === 0) {
+      return;
+    }
+
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      screenX: event.screenX,
+      screenY: event.screenY
+    };
+    void window.shotTranslate.moveResultWindow({ deltaX, deltaY });
+  }
+
+  function stopDrag(event: PointerEvent<HTMLElement>) {
+    const dragState = dragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragStateRef.current = null;
+    setDragging(false);
+  }
+
   return (
     <div className="grid h-full place-items-center bg-transparent">
       <section className="flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl">
         <header
-          className="flex items-center justify-between gap-2 border-b bg-white px-4 py-3"
-          style={{ WebkitAppRegion: "drag" } as CSSProperties}
+          className={cn(
+            "flex cursor-move select-none items-center justify-between gap-2 border-b bg-white px-4 py-3",
+            dragging && "cursor-grabbing"
+          )}
+          onPointerDown={startDrag}
+          onPointerMove={moveDrag}
+          onPointerUp={stopDrag}
+          onPointerCancel={stopDrag}
         >
           <div className="flex items-center gap-3">
             <span
@@ -94,7 +150,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
             variant="ghost"
             size="icon"
             className="size-7"
-            style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
+            onPointerDown={(event) => event.stopPropagation()}
             onClick={() => window.shotTranslate.closeResultWindow()}
             aria-label="关闭"
           >

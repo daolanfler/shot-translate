@@ -1,4 +1,18 @@
 import { test, expect } from "./fixtures";
+import type { ElectronApplication, Page } from "@playwright/test";
+
+async function waitForResultPage(electronApp: ElectronApplication): Promise<Page> {
+  let resultPage: Page | undefined;
+
+  await expect
+    .poll(() => {
+      resultPage = electronApp.windows().find((page) => page.url().includes("#/result"));
+      return Boolean(resultPage);
+    })
+    .toBe(true);
+
+  return resultPage!;
+}
 
 test("launches the main window and shows update state", async ({ mainWindow }) => {
   await expect(mainWindow.getByText("Shot Translate")).toBeVisible();
@@ -47,6 +61,46 @@ test("runs a mocked capture translation flow and manages history", async ({ main
   }).toBe("success");
 
   await expect.poll(() => electronApp.windows().length).toBeGreaterThan(1);
+  const resultPage = await waitForResultPage(electronApp);
+  await expect(resultPage.getByText("你好，世界")).toBeVisible();
+
+  const resultWindowHandle = await electronApp.browserWindow(resultPage);
+  await expect.poll(() => resultWindowHandle.evaluate((window) => window.isResizable())).toBe(true);
+
+  const initialBounds = await resultWindowHandle.evaluate((window) => window.getBounds());
+  await resultWindowHandle.evaluate((window) => {
+    const bounds = window.getBounds();
+    window.setBounds({ ...bounds, width: 620, height: 460 });
+  });
+  await expect.poll(() => resultWindowHandle.evaluate((window) => window.getBounds().width)).toBe(620);
+  await expect.poll(() => resultWindowHandle.evaluate((window) => window.getBounds().height)).toBe(460);
+
+  const headerBox = await resultPage.locator("header").boundingBox();
+  expect(headerBox).not.toBeNull();
+  await resultPage.mouse.move(headerBox!.x + 120, headerBox!.y + 20);
+  await resultPage.mouse.down();
+  await resultPage.mouse.move(headerBox!.x + 240, headerBox!.y + 80, { steps: 6 });
+  await resultPage.mouse.up();
+
+  await expect
+    .poll(async () => {
+      const nextBounds = await resultWindowHandle.evaluate((window) => window.getBounds());
+      return nextBounds.x !== initialBounds.x || nextBounds.y !== initialBounds.y;
+    })
+    .toBe(true);
+
+  await resultPage.evaluate(() => window.shotTranslate.moveResultWindow({ deltaX: -100000, deltaY: -100000 }));
+  const clampedBounds = await resultWindowHandle.evaluate((window) => window.getBounds());
+  const clampedWorkArea = await electronApp.evaluate(({ BrowserWindow, screen }, windowId) => {
+    const window = BrowserWindow.fromId(windowId);
+    if (!window) {
+      throw new Error("Result window was not found.");
+    }
+
+    return screen.getDisplayMatching(window.getBounds()).workArea;
+  }, await resultWindowHandle.evaluate((window) => window.id));
+  expect(clampedBounds.x).toBeGreaterThanOrEqual(clampedWorkArea.x);
+  expect(clampedBounds.y).toBeGreaterThanOrEqual(clampedWorkArea.y);
 
   await mainWindow.getByTestId("nav-history").click();
   await expect(mainWindow).toHaveURL(/#\/history$/);

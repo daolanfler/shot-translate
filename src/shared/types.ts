@@ -130,6 +130,11 @@ export interface ScreenRect {
   height: number;
 }
 
+export interface ResultWindowMovePayload {
+  deltaX: number;
+  deltaY: number;
+}
+
 export interface CaptureSubmitPayload {
   displayId: number;
   imageDataUrl: string;
@@ -188,6 +193,7 @@ export interface ShotTranslateApi {
   submitCapture: (payload: CaptureSubmitPayload) => Promise<boolean>;
   cancelCapture: () => Promise<boolean>;
   writeClipboardText: (text: string) => Promise<boolean>;
+  moveResultWindow: (payload: ResultWindowMovePayload) => Promise<boolean>;
   closeResultWindow: () => Promise<boolean>;
   reportRendererError: (payload: { message: string; stack?: string }) => Promise<boolean>;
   onAppEvent: (listener: (event: AppEvent) => void) => () => void;

@@ -18,6 +18,7 @@ import type {
   CaptureSourcePayload,
   CaptureSubmitPayload,
   HistoryItem,
+  ResultWindowMovePayload,
   ScreenRect,
   ServiceResult,
   WindowContext
@@ -335,6 +336,30 @@ function closeResultWindow() {
   resultWindow = null;
 }
 
+function moveResultWindow(payload: ResultWindowMovePayload) {
+  if (!resultWindow || resultWindow.isDestroyed()) {
+    return false;
+  }
+
+  if (!Number.isFinite(payload.deltaX) || !Number.isFinite(payload.deltaY)) {
+    return false;
+  }
+
+  const bounds = resultWindow.getBounds();
+  const display = screen.getDisplayMatching(bounds);
+  const work = display.workArea;
+  const maxX = work.x + work.width - bounds.width;
+  const maxY = work.y + work.height - bounds.height;
+
+  resultWindow.setBounds({
+    ...bounds,
+    x: Math.round(Math.max(work.x, Math.min(bounds.x + payload.deltaX, maxX))),
+    y: Math.round(Math.max(work.y, Math.min(bounds.y + payload.deltaY, maxY)))
+  });
+
+  return true;
+}
+
 async function processCaptureResult(imageDataUrl: string, selectionRect?: ScreenRect) {
   const settings = getSettings();
   const item = createHistoryItem(settings.targetLanguage);
@@ -569,6 +594,14 @@ function installIpcHandlers() {
   ipcMain.handle("clipboard:writeText", (_event, text: string) => {
     clipboard.writeText(text);
     return true;
+  });
+  ipcMain.handle("result:move", (event, payload: ResultWindowMovePayload) => {
+    const senderWindow = BrowserWindow.fromWebContents(event.sender);
+    if (senderWindow !== resultWindow || getContextForSender(event.sender.id).type !== "result") {
+      return false;
+    }
+
+    return moveResultWindow(payload);
   });
   ipcMain.handle("result:close", (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close();

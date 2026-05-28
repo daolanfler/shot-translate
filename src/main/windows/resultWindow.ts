@@ -5,6 +5,8 @@ import type { ScreenRect, WindowContext } from "../../shared/types";
 
 const WINDOW_WIDTH = 480;
 const WINDOW_HEIGHT = 390;
+const MIN_WINDOW_WIDTH = 360;
+const MIN_WINDOW_HEIGHT = 280;
 const ANCHOR_GAP = 12;
 
 function buildUrl(hash: string) {
@@ -79,10 +81,9 @@ export function createResultWindow(
     y: position.y,
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
-    minWidth: WINDOW_WIDTH,
-    minHeight: WINDOW_HEIGHT,
-    maxWidth: WINDOW_WIDTH,
-    maxHeight: WINDOW_HEIGHT,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
+    resizable: true,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
