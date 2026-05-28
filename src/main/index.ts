@@ -51,6 +51,7 @@ import {
 import { createCaptureWindow } from "./windows/captureWindow";
 import { createMainWindow } from "./windows/mainWindow";
 import { createResultWindow } from "./windows/resultWindow";
+import { cropCaptureSourceToDataUrl } from "./services/captureCrop";
 
 type WorkflowState = "idle" | "capturing" | "processing";
 type OcrProgressCallback = (message: string) => void;
@@ -336,6 +337,17 @@ async function getCaptureSource(displayId: number): Promise<CaptureSourcePayload
   return buildCaptureSource(display);
 }
 
+async function cropCaptureSelection(payload: CaptureSubmitPayload): Promise<string> {
+  const source = await getCaptureSource(payload.displayId);
+  const display = screen.getAllDisplays().find((item) => item.id === payload.displayId);
+
+  if (!display) {
+    throw new Error(`Display ${payload.displayId} was not found.`);
+  }
+
+  return cropCaptureSourceToDataUrl(source, payload.selectionRect, display.workArea);
+}
+
 function openResultWindow(item: HistoryItem, anchor?: ScreenRect) {
   if (resultWindow && !resultWindow.isDestroyed()) {
     resultWindow.close();
@@ -611,13 +623,19 @@ function installIpcHandlers() {
 
     return getCaptureSource(displayId);
   });
-  ipcMain.handle("capture:submit", async (_event, payload: unknown) => {
+  ipcMain.handle("capture:submit", async (event, payload: unknown) => {
     const validatedPayload = validateCaptureSubmitPayload(payload);
+    const context = getContextForSender(event.sender.id);
+    if (context.type !== "capture" || context.displayId !== validatedPayload.displayId) {
+      throw new Error("Capture submission did not come from the selected display.");
+    }
+
+    const imageDataUrl = await cropCaptureSelection(validatedPayload);
     // Transition before close so the window.closed listener sees "processing"
     // and does not reset to idle.
     setWorkflowState("processing", "Running OCR");
     closeCaptureWindows();
-    await processCaptureResult(validatedPayload.imageDataUrl, validatedPayload.selectionRect);
+    await processCaptureResult(imageDataUrl, validatedPayload.selectionRect);
     return true;
   });
   ipcMain.handle("capture:cancel", () => {

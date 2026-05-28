@@ -3,7 +3,7 @@
   "name": "move-screenshot-crop-flow-into-main-process",
   "title": "Move screenshot crop flow into main process",
   "description": "Keep screenshot image ownership in main process by having renderer submit selection metadata instead of cropped image data.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

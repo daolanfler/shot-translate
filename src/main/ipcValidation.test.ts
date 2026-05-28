@@ -49,22 +49,19 @@ describe("ipcValidation", () => {
     expect(
       validateCaptureSubmitPayload({
         displayId: 1,
-        imageDataUrl: "data:image/png;base64,abc",
         selectionRect: { x: 1, y: 2, width: 3, height: 4 }
       })
     ).toEqual({
       displayId: 1,
-      imageDataUrl: "data:image/png;base64,abc",
       selectionRect: { x: 1, y: 2, width: 3, height: 4 }
     });
 
     expect(() =>
       validateCaptureSubmitPayload({
         displayId: 1,
-        imageDataUrl: "javascript:alert(1)",
-        selectionRect: { x: 1, y: 2, width: 3, height: 4 }
+        selectionRect: { x: 1, y: 2, width: 0, height: 4 }
       })
-    ).toThrow("imageDataUrl");
+    ).toThrow("selectionRect");
   });
 
   it("rejects invalid result movement and update sources", () => {

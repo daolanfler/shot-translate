@@ -193,19 +193,13 @@ export function validateRetrySourceText(value: unknown): string | undefined {
 export function validateCaptureSubmitPayload(value: unknown): CaptureSubmitPayload {
   const raw = requirePlainObject(value, "capture payload");
   const displayId = raw.displayId;
-  const imageDataUrl = requireString(raw.imageDataUrl, "imageDataUrl");
 
   if (typeof displayId !== "number" || !Number.isInteger(displayId)) {
     throw new Error("displayId must be an integer.");
   }
 
-  if (!/^data:image\/(?:png|jpeg|webp);base64,/u.test(imageDataUrl)) {
-    throw new Error("imageDataUrl must be a PNG, JPEG, or WebP data URL.");
-  }
-
   return {
     displayId,
-    imageDataUrl,
     selectionRect: validateScreenRect(raw.selectionRect, "selectionRect")
   };
 }

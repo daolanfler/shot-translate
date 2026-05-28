@@ -154,7 +154,6 @@ export interface ResultWindowMovePayload {
 
 export interface CaptureSubmitPayload {
   displayId: number;
-  imageDataUrl: string;
   /**
    * The captured region in screen-coordinates (CSS px). Used to anchor the
    * result window near the selection instead of always centering on the

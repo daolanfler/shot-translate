@@ -83,7 +83,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
   }, [displayId]);
 
   async function submitSelection(rect: Rect) {
-    if (!source || !containerRef.current) {
+    if (!source) {
       return;
     }
 
@@ -92,38 +92,8 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
       return;
     }
 
-    const image = new Image();
-    image.src = source.dataUrl;
-    await image.decode();
-
-    const renderedWidth = containerRef.current.clientWidth;
-    const renderedHeight = containerRef.current.clientHeight;
-    const scaleX = image.width / renderedWidth;
-    const scaleY = image.height / renderedHeight;
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.floor(rect.width * scaleX));
-    canvas.height = Math.max(1, Math.floor(rect.height * scaleY));
-
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
-
-    context.drawImage(
-      image,
-      rect.left * scaleX,
-      rect.top * scaleY,
-      rect.width * scaleX,
-      rect.height * scaleY,
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
-
     await window.shotTranslate.submitCapture({
       displayId,
-      imageDataUrl: canvas.toDataURL("image/png"),
       // Translate rect (CSS px, capture-window relative) into screen-space
       // (CSS px, display-relative) so main can anchor the result window.
       selectionRect: {
