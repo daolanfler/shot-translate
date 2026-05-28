@@ -35,11 +35,10 @@ import {
   IconTrash,
   IconWorld
 } from "@tabler/icons-react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import type { AppEvent, AppSettings, HistoryItem, ServiceResult, UpdateSource, UpdateStatus } from "../../shared/types";
 import { useUpdateState } from "../hooks/useUpdateState";
 import { UpdateService } from "../services/UpdateService";
-
-type View = "settings" | "history" | "updates";
 
 const targetLanguageOptions = [
   { value: "zh-CN", label: "Chinese (Simplified)" },
@@ -134,11 +133,12 @@ export function MainShell() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [busyMessage, setBusyMessage] = useState("");
   const [notice, setNotice] = useState("");
-  const [activeView, setActiveView] = useState<View>("settings");
   const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
   const [apiResult, setApiResult] = useState<ServiceResult | null>(null);
   const [testingApi, setTestingApi] = useState(false);
   const { updateState } = useUpdateState();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const updateVersion = updateState?.availableVersion ?? null;
   const shouldShowUpdateModal =
@@ -268,8 +268,8 @@ export function MainShell() {
               data-testid="nav-settings"
               label="Settings"
               leftSection={<IconSettings size={20} />}
-              active={activeView === "settings"}
-              onClick={() => setActiveView("settings")}
+              active={location.pathname === "/settings"}
+              onClick={() => navigate("/settings")}
               variant="filled"
               style={{ borderRadius: 8 }}
             />
@@ -277,8 +277,8 @@ export function MainShell() {
               data-testid="nav-history"
               label="History"
               leftSection={<IconHistory size={20} />}
-              active={activeView === "history"}
-              onClick={() => setActiveView("history")}
+              active={location.pathname === "/history"}
+              onClick={() => navigate("/history")}
               variant="filled"
               style={{ borderRadius: 8 }}
             />
@@ -293,8 +293,8 @@ export function MainShell() {
                   </Badge>
                 ) : null
               }
-              active={activeView === "updates"}
-              onClick={() => setActiveView("updates")}
+              active={location.pathname === "/updates"}
+              onClick={() => navigate("/updates")}
               variant="filled"
               style={{ borderRadius: 8 }}
             />
@@ -334,17 +334,24 @@ export function MainShell() {
                 </Alert>
               ) : null}
 
-              {activeView === "settings" ? (
-                <SettingsView
-                  apiResult={apiResult}
-                  settings={settings}
-                  saveSettings={saveSettings}
-                  testApiConnection={testApiConnection}
-                  testingApi={testingApi}
+              <Routes>
+                <Route path="/" element={<Navigate to="/settings" replace />} />
+                <Route
+                  path="/settings"
+                  element={
+                    <SettingsView
+                      apiResult={apiResult}
+                      settings={settings}
+                      saveSettings={saveSettings}
+                      testApiConnection={testApiConnection}
+                      testingApi={testingApi}
+                    />
+                  }
                 />
-              ) : null}
-              {activeView === "history" ? <HistoryView history={history} refreshHistory={refreshHistory} /> : null}
-              {activeView === "updates" ? <UpdatesView /> : null}
+                <Route path="/history" element={<HistoryView history={history} refreshHistory={refreshHistory} />} />
+                <Route path="/updates" element={<UpdatesView />} />
+                <Route path="*" element={<Navigate to="/settings" replace />} />
+              </Routes>
             </Stack>
           </ScrollArea>
         </AppShell.Main>

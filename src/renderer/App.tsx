@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { MantineProvider, createTheme } from "@mantine/core";
+import { HashRouter } from "react-router-dom";
 import type { WindowContext } from "../shared/types";
 import { CaptureOverlay } from "./screens/CaptureOverlay";
 import { MainShell } from "./screens/MainShell";
@@ -49,7 +50,9 @@ export function App() {
 
   return (
     <MantineProvider theme={theme}>
-      <MainShell />
+      <HashRouter>
+        <MainShell />
+      </HashRouter>
     </MantineProvider>
   );
 }

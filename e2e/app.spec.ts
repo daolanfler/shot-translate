@@ -2,11 +2,13 @@ import { test, expect } from "./fixtures";
 
 test("launches the main window and shows update state", async ({ mainWindow }) => {
   await expect(mainWindow.getByText("Shot Translate")).toBeVisible();
+  await expect(mainWindow).toHaveURL(/#\/settings$/);
   await expect(mainWindow.getByTestId("nav-settings")).toBeVisible();
   await expect(mainWindow.getByTestId("nav-history")).toBeVisible();
   await expect(mainWindow.getByTestId("nav-updates")).toBeVisible();
 
   await mainWindow.getByTestId("nav-updates").click();
+  await expect(mainWindow).toHaveURL(/#\/updates$/);
   await expect(mainWindow.getByText("Development mode", { exact: true })).toBeVisible();
 });
 
@@ -47,6 +49,7 @@ test("runs a mocked capture translation flow and manages history", async ({ main
   await expect.poll(() => electronApp.windows().length).toBeGreaterThan(1);
 
   await mainWindow.getByTestId("nav-history").click();
+  await expect(mainWindow).toHaveURL(/#\/history$/);
   await expect(mainWindow.getByText("Hello world")).toBeVisible();
   await expect(mainWindow.getByText("你好，世界")).toBeVisible();
 
@@ -89,5 +92,6 @@ test("shows OCR and translation failure states with mocks", async ({ mainWindow 
   }).toBe("error");
 
   await mainWindow.getByTestId("nav-history").click();
+  await expect(mainWindow).toHaveURL(/#\/history$/);
   await expect(mainWindow.getByText("Mock translation failed")).toBeVisible();
 });
