@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/type-safety.md", "reason": "Zod-first type guidance and schema-derived type conventions."}
+{"file": ".trellis/spec/frontend/ipc-electron.md", "reason": "IPC must stay behind the preload boundary and preserve context isolation."}
+{"file": ".trellis/spec/shared/typescript.md", "reason": "Shared TypeScript conventions for explicit types and safe narrowing."}
+{"file": ".trellis/spec/backend/quality.md", "reason": "Main-process import and quality rules for Electron code."}
