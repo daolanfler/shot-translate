@@ -1,6 +1,9 @@
 node_modules
 out
 release
+.tmp
+test-results
+playwright-report
 .pnpm-store/
 
 # Build artifacts

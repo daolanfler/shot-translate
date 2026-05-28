@@ -4,8 +4,13 @@ import type {
   AppSettings,
   CaptureSourcePayload,
   CaptureSubmitPayload,
+  E2eMockCaptureOptions,
+  E2eState,
   HistoryItem,
   ServiceResult,
+  UpdateSettings,
+  UpdateSource,
+  UpdateState,
   WindowContext
 } from "../shared/types";
 
@@ -26,6 +31,13 @@ const api = {
   deleteHistoryItem: (id: string) => ipcRenderer.invoke("history:delete", id) as Promise<HistoryItem[]>,
   retryHistoryItem: (id: string, sourceText?: string) =>
     ipcRenderer.invoke("history:retry", id, sourceText) as Promise<HistoryItem | null>,
+  getUpdateState: () => ipcRenderer.invoke("updates:get-state") as Promise<UpdateState>,
+  getUpdateSettings: () => ipcRenderer.invoke("updates:get-settings") as Promise<UpdateSettings>,
+  setUpdateSource: (source: UpdateSource) =>
+    ipcRenderer.invoke("updates:set-source", source) as Promise<UpdateSettings>,
+  checkForUpdates: () => ipcRenderer.invoke("updates:check") as Promise<UpdateState>,
+  downloadUpdate: () => ipcRenderer.invoke("updates:download") as Promise<UpdateState>,
+  installUpdate: () => ipcRenderer.invoke("updates:install") as Promise<void>,
   startCapture: () => ipcRenderer.invoke("capture:start") as Promise<void>,
   getCaptureSource: (displayId: number) =>
     ipcRenderer.invoke("capture:source", displayId) as Promise<CaptureSourcePayload>,
@@ -42,7 +54,25 @@ const api = {
     return () => {
       ipcRenderer.removeListener("app:event", wrapped);
     };
+  },
+  onUpdateStateChanged: (listener: (state: UpdateState) => void) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, payload: UpdateState) => listener(payload);
+    ipcRenderer.on("updates:state-changed", wrapped);
+    return () => {
+      ipcRenderer.removeListener("updates:state-changed", wrapped);
+    };
   }
 };
+
+if (process.env.SHOT_TRANSLATE_E2E === "1") {
+  Object.assign(api, {
+    e2e: {
+      getState: () => ipcRenderer.invoke("e2e:getState") as Promise<E2eState>,
+      resetState: () => ipcRenderer.invoke("e2e:resetState") as Promise<boolean>,
+      mockCaptureSubmit: (options?: E2eMockCaptureOptions) =>
+        ipcRenderer.invoke("e2e:mockCaptureSubmit", options) as Promise<HistoryItem | null>
+    }
+  });
+}
 
 contextBridge.exposeInMainWorld("shotTranslate", api);

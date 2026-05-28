@@ -1,3 +1,4 @@
+import path from "node:path";
 import {
   app,
   BrowserWindow,
@@ -34,13 +35,28 @@ import { getSettings, updateSettings } from "./services/settings";
 import { initLogger, log } from "./services/logger";
 import { recognizeText, terminateOcrWorker } from "./services/ocr";
 import { testTranslationConnection, toUserMessage, translateText } from "./services/translator";
+import { E2eHarness, isE2eMode } from "./testing/e2eHarness";
+import { UpdateService } from "./services/updateService";
 import { createCaptureWindow } from "./windows/captureWindow";
 import { createMainWindow } from "./windows/mainWindow";
 import { createResultWindow } from "./windows/resultWindow";
 
-initLogger();
-
 type WorkflowState = "idle" | "capturing" | "processing";
+type OcrProgressCallback = (message: string) => void;
+
+const IS_E2E = isE2eMode();
+const e2eUserDataDir = process.env.SHOT_TRANSLATE_USER_DATA_DIR;
+if (IS_E2E && e2eUserDataDir) {
+  app.setPath("userData", path.resolve(process.cwd(), e2eUserDataDir));
+}
+
+const remoteDebuggingPort = process.env.SHOT_TRANSLATE_REMOTE_DEBUGGING_PORT;
+if (remoteDebuggingPort) {
+  app.commandLine.appendSwitch("remote-debugging-port", remoteDebuggingPort);
+  app.commandLine.appendSwitch("remote-allow-origins", "*");
+}
+
+initLogger();
 
 let tray: Tray | null = null;
 let mainWindow: BrowserWindow | null = null;
@@ -48,6 +64,8 @@ let resultWindow: BrowserWindow | null = null;
 let captureWindows: BrowserWindow[] = [];
 let captureSourceCache = new Map<number, CaptureSourcePayload>();
 let workflowState: WorkflowState = "idle";
+let updateService: UpdateService | null = null;
+const e2eHarness = IS_E2E ? new E2eHarness() : null;
 const windowContexts = new Map<number, WindowContext>();
 
 function setWorkflowState(next: WorkflowState, message?: string) {
@@ -142,6 +160,14 @@ function registerShortcut(settings: AppSettings) {
   });
 }
 
+function requireUpdateService(): UpdateService {
+  if (!updateService) {
+    throw new Error("Update service has not been initialized.");
+  }
+
+  return updateService;
+}
+
 function isLikelyAccelerator(value: string) {
   const parts = value
     .split("+")
@@ -200,12 +226,30 @@ async function updateSettingsSafely(patch: Partial<AppSettings>): Promise<{
   }
 
   const settings = await updateSettings(patch);
-  registerShortcut(settings);
+  if (!IS_E2E) {
+    registerShortcut(settings);
+  }
   return {
     settings,
     shortcutRegistered: true,
     message: "Settings saved."
   };
+}
+
+async function recognizeTextForWorkflow(imageDataUrl: string, languages: string[], onProgress: OcrProgressCallback) {
+  if (e2eHarness) {
+    return e2eHarness.recognizeText(onProgress);
+  }
+
+  return recognizeText(imageDataUrl, languages, onProgress);
+}
+
+async function translateTextForWorkflow(text: string, settings: AppSettings) {
+  if (e2eHarness) {
+    return e2eHarness.translateText();
+  }
+
+  return translateText(text, settings);
 }
 
 function closeCaptureWindows() {
@@ -283,6 +327,14 @@ function openResultWindow(item: HistoryItem, anchor?: ScreenRect) {
   resultWindow = createResultWindow(item.id, setWindowContext, anchor);
 }
 
+function closeResultWindow() {
+  if (resultWindow && !resultWindow.isDestroyed()) {
+    resultWindow.close();
+  }
+
+  resultWindow = null;
+}
+
 async function processCaptureResult(imageDataUrl: string, selectionRect?: ScreenRect) {
   const settings = getSettings();
   const item = createHistoryItem(settings.targetLanguage);
@@ -295,7 +347,7 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
     });
     broadcast({ type: "history-updated" });
 
-    const ocr = await recognizeText(imageDataUrl, settings.ocrLanguages, (message) => {
+    const ocr = await recognizeTextForWorkflow(imageDataUrl, settings.ocrLanguages, (message) => {
       updateWorkflowStatus(true, message);
     });
 
@@ -318,7 +370,7 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
     openResultWindow(translating ?? item, selectionRect);
     updateWorkflowStatus(true, "Translating text");
 
-    const translated = await translateText(ocr.text, settings);
+    const translated = await translateTextForWorkflow(ocr.text, settings);
     const completed = updateHistoryItem(item.id, {
       sourceText: ocr.text,
       translatedText: translated.translatedText,
@@ -327,7 +379,6 @@ async function processCaptureResult(imageDataUrl: string, selectionRect?: Screen
       status: "success",
       errorMessage: undefined
     });
-
     broadcast({ type: "history-updated" });
   } catch (error) {
     log.error("Capture workflow failed.", error);
@@ -403,7 +454,7 @@ async function retryHistoryItem(id: string, sourceText?: string) {
   broadcast({ type: "history-updated" });
 
   try {
-    const translated = await translateText(nextSourceText, settings);
+    const translated = await translateTextForWorkflow(nextSourceText, settings);
     const completed = updateHistoryItem(id, {
       translatedText: translated.translatedText,
       sourceLanguage: translated.sourceLanguage,
@@ -444,6 +495,10 @@ function installIpcHandlers() {
     return result;
   });
   ipcMain.handle("settings:testApiConnection", async (_event, patch: Partial<AppSettings>): Promise<ServiceResult> => {
+    if (e2eHarness) {
+      return e2eHarness.testApiConnection(patch);
+    }
+
     const result = await testTranslationConnection({
       ...getSettings(),
       ...patch
@@ -469,6 +524,31 @@ function installIpcHandlers() {
     return listHistory();
   });
   ipcMain.handle("history:retry", (_event, id: string, sourceText?: string) => retryHistoryItem(id, sourceText));
+
+  ipcMain.handle("updates:get-state", () => {
+    return requireUpdateService().getState();
+  });
+
+  ipcMain.handle("updates:get-settings", () => {
+    return requireUpdateService().getSettings();
+  });
+
+  ipcMain.handle("updates:set-source", (_event, source: string) => {
+    return requireUpdateService().setSource(source);
+  });
+
+  ipcMain.handle("updates:check", () => {
+    return requireUpdateService().checkForUpdates();
+  });
+
+  ipcMain.handle("updates:download", () => {
+    return requireUpdateService().downloadUpdate();
+  });
+
+  ipcMain.handle("updates:install", () => {
+    quitting = true;
+    requireUpdateService().installUpdate();
+  });
 
   ipcMain.handle("capture:start", () => startCaptureFlow());
   ipcMain.handle("capture:source", (_event, displayId: number) => getCaptureSource(displayId));
@@ -498,16 +578,30 @@ function installIpcHandlers() {
     log.error(`[renderer] ${payload.message}`, payload.stack ?? "");
     return true;
   });
+
+  e2eHarness?.installIpcHandlers({
+    getWorkflowState: () => workflowState,
+    setWorkflowState,
+    closeCaptureWindows,
+    closeResultWindow,
+    processCaptureResult
+  });
 }
 
 let quitting = false;
 let cleaningUp = false;
 
 app.whenReady().then(() => {
-  createTray();
+  updateService = new UpdateService(() => mainWindow);
+  if (!IS_E2E) {
+    createTray();
+  }
   installIpcHandlers();
   showMainWindow();
-  registerShortcut(getSettings());
+  if (!IS_E2E) {
+    registerShortcut(getSettings());
+    updateService.startStartupCheck();
+  }
 
   app.on("activate", () => {
     showMainWindow();

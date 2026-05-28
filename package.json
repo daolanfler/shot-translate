@@ -12,7 +12,10 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "start": "electron-vite preview",
-    "dist": "electron-vite build && electron-builder"
+    "dist": "electron-vite build && electron-builder",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "smoke:capture": "node scripts/smoke-capture.cjs"
   },
   "build": {
     "appId": "com.codex.shottranslate",
@@ -24,16 +27,25 @@
     "directories": {
       "output": "release"
     },
+    "publish": {
+      "provider": "generic",
+      "url": "https://github.com/daolanfler/shot-translate/releases/latest/download/"
+    },
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "artifactName": "${productName}-${version}-windows-${arch}.${ext}"
     }
   },
   "dependencies": {
+    "@mantine/core": "^9.2.1",
+    "@mantine/hooks": "^9.2.1",
+    "@tabler/icons-react": "^3.44.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
     "lucide-react": "^1.14.0",
     "radix-ui": "^1.4.3",
     "react": "^19.1.0",
@@ -44,6 +56,7 @@
     "undici": "^8.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/vite": "^4.3.0",
     "@types/node": "^24.6.2",
     "@types/react": "^19.1.13",

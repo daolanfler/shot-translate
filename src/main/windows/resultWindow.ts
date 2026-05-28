@@ -3,8 +3,8 @@ import { BrowserWindow, screen } from "electron";
 import { clamp } from "../../shared/geometry";
 import type { ScreenRect, WindowContext } from "../../shared/types";
 
-const WINDOW_WIDTH = 520;
-const WINDOW_HEIGHT = 420;
+const WINDOW_WIDTH = 480;
+const WINDOW_HEIGHT = 390;
 const ANCHOR_GAP = 12;
 
 function buildUrl(hash: string) {
@@ -79,13 +79,16 @@ export function createResultWindow(
     y: position.y,
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
-    minWidth: 420,
-    minHeight: 280,
+    minWidth: WINDOW_WIDTH,
+    minHeight: WINDOW_HEIGHT,
+    maxWidth: WINDOW_WIDTH,
+    maxHeight: WINDOW_HEIGHT,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     backgroundColor: "#00000000",
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -94,8 +97,12 @@ export function createResultWindow(
   });
 
   onReady(window, { type: "result", historyId });
+  window.once("ready-to-show", () => {
+    if (!window.isDestroyed()) {
+      window.show();
+    }
+  });
   window.loadURL(buildUrl("#/result"));
-  window.show();
 
   return window;
 }

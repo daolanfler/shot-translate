@@ -20,7 +20,7 @@ export function createMainWindow(onReady: (window: BrowserWindow, context: Windo
     minHeight: 640,
     title: "Shot Translate",
     autoHideMenuBar: true,
-    backgroundColor: "#0d1117",
+    backgroundColor: "#f8f9fa",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -29,7 +29,6 @@ export function createMainWindow(onReady: (window: BrowserWindow, context: Windo
   });
 
   onReady(window, { type: "main" });
-  window.setMenuBarVisibility(false);
   window.loadURL(buildUrl("#/"));
 
   window.webContents.setWindowOpenHandler(({ url }) => {

@@ -20,6 +20,10 @@ export const defaultSettings: AppSettings = {
 
 let cachedSettings: AppSettings | null = null;
 
+export function resetSettingsForTests(): void {
+  cachedSettings = null;
+}
+
 function decryptApiKey(stored: string): string {
   if (!stored) {
     return "";
@@ -99,9 +103,11 @@ export async function updateSettings(patch: Partial<AppSettings>): Promise<AppSe
     ...patch
   };
 
-  app.setLoginItemSettings({
-    openAtLogin: cachedSettings.launchOnStartup
-  });
+  if (process.env.SHOT_TRANSLATE_E2E !== "1") {
+    app.setLoginItemSettings({
+      openAtLogin: cachedSettings.launchOnStartup
+    });
+  }
 
   await persistSettings(cachedSettings);
   return cachedSettings;

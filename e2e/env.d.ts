@@ -1,4 +1,4 @@
-import type { ShotTranslateApi } from "../shared/types";
+import type { ShotTranslateApi } from "../src/shared/types";
 
 declare global {
   interface Window {

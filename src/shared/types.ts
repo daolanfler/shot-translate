@@ -1,5 +1,35 @@
 export type ApiProvider = "openai-compatible";
 
+export type UpdateSource = "mirror" | "github";
+
+export type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "not-available"
+  | "downloading"
+  | "downloaded"
+  | "error"
+  | "disabled";
+
+export interface UpdateSettings {
+  source: UpdateSource;
+  feedUrl: string;
+}
+
+export interface UpdateState {
+  status: UpdateStatus;
+  source: UpdateSource;
+  currentVersion: string;
+  availableVersion: string | null;
+  downloadProgress: number | null;
+  errorMessage: string | null;
+  isChecking: boolean;
+  isUpdateAvailable: boolean;
+  isDownloading: boolean;
+  isUpdateDownloaded: boolean;
+}
+
 export type HistoryStatus =
   | "pending"
   | "ocr_processing"
@@ -116,5 +146,55 @@ export interface AppEvent {
   payload?: {
     busy?: boolean;
     message?: string;
+  };
+}
+
+export interface E2eMockCaptureOptions {
+  ocrText?: string;
+  translatedText?: string;
+  translationError?: string;
+}
+
+export interface E2eState {
+  workflowState: "idle" | "capturing" | "processing";
+  windowCount: number;
+  historyCount: number;
+  settings: AppSettings;
+  history: HistoryItem[];
+}
+
+export interface ShotTranslateApi {
+  getWindowContext: () => Promise<WindowContext>;
+  getSettings: () => Promise<AppSettings>;
+  updateSettings: (patch: Partial<AppSettings>) => Promise<{
+    settings: AppSettings;
+    shortcutRegistered: boolean;
+    message: string;
+  }>;
+  testApiConnection: (patch: Partial<AppSettings>) => Promise<ServiceResult>;
+  listHistory: () => Promise<HistoryItem[]>;
+  getHistoryItem: (id: string) => Promise<HistoryItem | null>;
+  clearHistory: () => Promise<HistoryItem[]>;
+  deleteHistoryItem: (id: string) => Promise<HistoryItem[]>;
+  retryHistoryItem: (id: string, sourceText?: string) => Promise<HistoryItem | null>;
+  getUpdateState: () => Promise<UpdateState>;
+  getUpdateSettings: () => Promise<UpdateSettings>;
+  setUpdateSource: (source: UpdateSource) => Promise<UpdateSettings>;
+  checkForUpdates: () => Promise<UpdateState>;
+  downloadUpdate: () => Promise<UpdateState>;
+  installUpdate: () => Promise<void>;
+  startCapture: () => Promise<void>;
+  getCaptureSource: (displayId: number) => Promise<CaptureSourcePayload>;
+  submitCapture: (payload: CaptureSubmitPayload) => Promise<boolean>;
+  cancelCapture: () => Promise<boolean>;
+  writeClipboardText: (text: string) => Promise<boolean>;
+  closeResultWindow: () => Promise<boolean>;
+  reportRendererError: (payload: { message: string; stack?: string }) => Promise<boolean>;
+  onAppEvent: (listener: (event: AppEvent) => void) => () => void;
+  onUpdateStateChanged: (listener: (state: UpdateState) => void) => () => void;
+  e2e?: {
+    getState: () => Promise<E2eState>;
+    resetState: () => Promise<boolean>;
+    mockCaptureSubmit: (options?: E2eMockCaptureOptions) => Promise<HistoryItem | null>;
   };
 }
