@@ -35,11 +35,18 @@ import {
   IconTrash,
   IconWorld
 } from "@tabler/icons-react";
-import type { AppEvent, AppSettings, HistoryItem, ServiceResult, UpdateSource, UpdateStatus } from "../../shared/types";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import type {
+  AppEvent,
+  AppSettings,
+  HistoryItem,
+  OcrLanguageProfile,
+  ServiceResult,
+  UpdateSource,
+  UpdateStatus
+} from "../../shared/types";
 import { useUpdateState } from "../hooks/useUpdateState";
 import { UpdateService } from "../services/UpdateService";
-
-type View = "settings" | "history" | "updates";
 
 const targetLanguageOptions = [
   { value: "zh-CN", label: "Chinese (Simplified)" },
@@ -58,6 +65,38 @@ const ocrLanguageOptions = [
   { value: "deu", label: "German" }
 ];
 
+const ocrLanguageProfiles: Array<{
+  value: OcrLanguageProfile;
+  label: string;
+  description: string;
+  languages: string[];
+}> = [
+  {
+    value: "zh-en",
+    label: "Chinese + English",
+    description: "Best default for Chinese/English screenshots.",
+    languages: ["eng", "chi_sim"]
+  },
+  {
+    value: "english",
+    label: "English only",
+    description: "Fastest option for English UI text.",
+    languages: ["eng"]
+  },
+  {
+    value: "cjk",
+    label: "CJK mixed",
+    description: "Broader Chinese/Japanese/Korean coverage, slower.",
+    languages: ["eng", "chi_sim", "chi_tra", "jpn", "kor"]
+  },
+  {
+    value: "manual",
+    label: "Manual",
+    description: "Choose exact Tesseract language packs.",
+    languages: []
+  }
+];
+
 function statusLabel(status: HistoryItem["status"]): string {
   switch (status) {
     case "ocr_processing":
@@ -66,6 +105,8 @@ function statusLabel(status: HistoryItem["status"]): string {
       return "OCR failed";
     case "translating":
       return "Translating";
+    case "low_confidence":
+      return "Review OCR";
     case "success":
       return "Done";
     case "error":
@@ -79,6 +120,8 @@ function historyBadgeColor(status: HistoryItem["status"]): string {
   switch (status) {
     case "success":
       return "green";
+    case "low_confidence":
+      return "yellow";
     case "error":
     case "ocr_failed":
       return "red";
@@ -134,11 +177,12 @@ export function MainShell() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [busyMessage, setBusyMessage] = useState("");
   const [notice, setNotice] = useState("");
-  const [activeView, setActiveView] = useState<View>("settings");
   const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
   const [apiResult, setApiResult] = useState<ServiceResult | null>(null);
   const [testingApi, setTestingApi] = useState(false);
   const { updateState } = useUpdateState();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const updateVersion = updateState?.availableVersion ?? null;
   const shouldShowUpdateModal =
@@ -268,8 +312,8 @@ export function MainShell() {
               data-testid="nav-settings"
               label="Settings"
               leftSection={<IconSettings size={20} />}
-              active={activeView === "settings"}
-              onClick={() => setActiveView("settings")}
+              active={location.pathname === "/settings"}
+              onClick={() => navigate("/settings")}
               variant="filled"
               style={{ borderRadius: 8 }}
             />
@@ -277,8 +321,8 @@ export function MainShell() {
               data-testid="nav-history"
               label="History"
               leftSection={<IconHistory size={20} />}
-              active={activeView === "history"}
-              onClick={() => setActiveView("history")}
+              active={location.pathname === "/history"}
+              onClick={() => navigate("/history")}
               variant="filled"
               style={{ borderRadius: 8 }}
             />
@@ -293,8 +337,8 @@ export function MainShell() {
                   </Badge>
                 ) : null
               }
-              active={activeView === "updates"}
-              onClick={() => setActiveView("updates")}
+              active={location.pathname === "/updates"}
+              onClick={() => navigate("/updates")}
               variant="filled"
               style={{ borderRadius: 8 }}
             />
@@ -334,17 +378,24 @@ export function MainShell() {
                 </Alert>
               ) : null}
 
-              {activeView === "settings" ? (
-                <SettingsView
-                  apiResult={apiResult}
-                  settings={settings}
-                  saveSettings={saveSettings}
-                  testApiConnection={testApiConnection}
-                  testingApi={testingApi}
+              <Routes>
+                <Route path="/" element={<Navigate to="/settings" replace />} />
+                <Route
+                  path="/settings"
+                  element={
+                    <SettingsView
+                      apiResult={apiResult}
+                      settings={settings}
+                      saveSettings={saveSettings}
+                      testApiConnection={testApiConnection}
+                      testingApi={testingApi}
+                    />
+                  }
                 />
-              ) : null}
-              {activeView === "history" ? <HistoryView history={history} refreshHistory={refreshHistory} /> : null}
-              {activeView === "updates" ? <UpdatesView /> : null}
+                <Route path="/history" element={<HistoryView history={history} refreshHistory={refreshHistory} />} />
+                <Route path="/updates" element={<UpdatesView />} />
+                <Route path="*" element={<Navigate to="/settings" replace />} />
+              </Routes>
             </Stack>
           </ScrollArea>
         </AppShell.Main>
@@ -461,7 +512,7 @@ function SettingsView({
           Languages
         </Title>
         <Text size="sm" c="dimmed" mb="md">
-          Choose the translation target and OCR packs loaded by Tesseract.
+          Choose the translation target and OCR profile loaded by Tesseract.
         </Text>
 
         <Stack gap="md">
@@ -471,16 +522,52 @@ function SettingsView({
             value={settings.targetLanguage}
             onChange={(value) => value && void saveSettings({ targetLanguage: value })}
           />
+          <SegmentedControl
+            aria-label="OCR language profile"
+            data={ocrLanguageProfiles.map((profile) => ({
+              value: profile.value,
+              label: profile.label
+            }))}
+            value={settings.ocrLanguageProfile}
+            onChange={(value) => {
+              const profile = ocrLanguageProfiles.find((candidate) => candidate.value === value);
+              if (!profile) {
+                return;
+              }
+
+              void saveSettings({
+                ocrLanguageProfile: profile.value,
+                ...(profile.value === "manual" ? {} : { ocrLanguages: profile.languages })
+              });
+            }}
+          />
+          <Text size="xs" c="dimmed">
+            {ocrLanguageProfiles.find((profile) => profile.value === settings.ocrLanguageProfile)?.description}
+          </Text>
           <Checkbox.Group
             label="OCR languages"
+            description={
+              settings.ocrLanguageProfile === "manual"
+                ? "Manual mode lets you choose exact packs. More languages can slow recognition."
+                : "Preset profiles manage OCR packs automatically. Switch to Manual to customize."
+            }
             value={settings.ocrLanguages}
+            readOnly={settings.ocrLanguageProfile !== "manual"}
             onChange={(value) => {
-              void saveSettings({ ocrLanguages: value.length > 0 ? value : ["eng"] });
+              void saveSettings({
+                ocrLanguageProfile: "manual",
+                ocrLanguages: value.length > 0 ? value : ["eng"]
+              });
             }}
           >
             <Group mt="xs">
               {ocrLanguageOptions.map((option) => (
-                <Checkbox key={option.value} value={option.value} label={option.label} />
+                <Checkbox
+                  key={option.value}
+                  value={option.value}
+                  label={option.label}
+                  disabled={settings.ocrLanguageProfile !== "manual"}
+                />
               ))}
             </Group>
           </Checkbox.Group>
@@ -539,6 +626,11 @@ function HistoryView({ history, refreshHistory }: { history: HistoryItem[]; refr
               {item.errorMessage ? (
                 <Text size="sm" c="red" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                   {item.errorMessage}
+                </Text>
+              ) : null}
+              {item.ocrConfidence !== undefined ? (
+                <Text size="xs" c={item.status === "low_confidence" ? "yellow.8" : "dimmed"}>
+                  OCR confidence {Math.round(item.ocrConfidence)}%
                 </Text>
               ) : null}
               <Text size="sm" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>

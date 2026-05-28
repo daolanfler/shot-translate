@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/quality.md", "reason": "Quality check should verify extracted main-process modules keep imports and behavior clean."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Quality check should verify IPC and workflow data flow remains consistent after extraction."}

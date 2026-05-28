@@ -138,3 +138,135 @@ Added AGENTS.md guidance requiring Codex commits to include a co-author trailer 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: Introduce React Router main window routes
+
+**Date**: 2026-05-28
+**Task**: Introduce React Router main window routes
+**Branch**: `main`
+
+### Summary
+
+Added react-router-dom and HashRouter for the main Electron window, replaced MainShell local active view state with URL-driven Settings/History/Updates routes, updated E2E URL assertions, and documented the routing convention.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `30c955e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 6: Update TODO after React Router work
+
+**Date**: 2026-05-28
+**Task**: Update TODO after React Router work
+**Branch**: `main`
+
+### Summary
+
+Removed the completed React Router exercise from TODO.md and left the ResultWindow interaction follow-up as the remaining task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7ecc8e6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 7: Improve result window interaction
+
+**Date**: 2026-05-28
+**Task**: Improve result window interaction
+**Branch**: `main`
+
+### Summary
+
+Made the result window resizable, added clamped header dragging through IPC, removed the completed TODO, and verified with typecheck/build/e2e.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `323a7ef` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 8: Create optimization planning tasks
+
+**Date**: 2026-05-28
+**Task**: Create optimization planning tasks
+**Branch**: `main`
+
+### Summary
+
+Reviewed the Electron screenshot translation app and created nine Trellis planning tasks covering OCR providers, preprocessing, benchmarks, main-process refactoring, IPC hardening, screenshot crop ownership, OCR correction UX, language selection, and UI dependency convergence.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e3f417f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

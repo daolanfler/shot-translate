@@ -250,6 +250,52 @@ function MyComponent() {
 
 ---
 
+## Electron Main Window Routing
+
+For this project, React Router is only responsible for navigation inside the main Electron window.
+
+**Rules**:
+
+- Keep `WindowContext` as the top-level process/window selector in `App.tsx`.
+- Do not route capture overlays or result popups through React Router.
+- Wrap only the main window shell in `HashRouter`.
+- Use `HashRouter` instead of `BrowserRouter` because packaged Electron renderer files are loaded from `file://` URLs.
+- Redirect `/` to the default main-window route.
+- Drive navigation selected state from React Router location, not duplicate local view state.
+
+**Current main-window routes**:
+
+| Route       | Purpose         |
+| ----------- | --------------- |
+| `/settings` | Settings page   |
+| `/history`  | History page    |
+| `/updates`  | Updates page    |
+
+**Wrong**:
+
+```tsx
+const [activeView, setActiveView] = useState<"settings" | "history" | "updates">("settings");
+```
+
+**Correct**:
+
+```tsx
+<HashRouter>
+  <MainShell />
+</HashRouter>
+```
+
+```tsx
+<Routes>
+  <Route path="/" element={<Navigate to="/settings" replace />} />
+  <Route path="/settings" element={<SettingsPage />} />
+  <Route path="/history" element={<HistoryPage />} />
+  <Route path="/updates" element={<UpdatesPage />} />
+</Routes>
+```
+
+---
+
 ## Tabs + Navigation Pattern
 
 When implementing a tab-based interface (like VS Code, Obsidian), use **tabs as the single source of truth** for navigation.

@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Quality check should confirm the UI dependency direction is linked from the frontend spec index."}
+{"file": ".trellis/spec/frontend/ui-dependencies.md", "reason": "Quality check should confirm new renderer UI dependencies follow the documented Mantine/Tailwind/Tabler split."}

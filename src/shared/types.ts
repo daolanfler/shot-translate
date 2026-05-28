@@ -1,5 +1,7 @@
 export type ApiProvider = "openai-compatible";
 
+export type OcrLanguageProfile = "zh-en" | "english" | "cjk" | "manual";
+
 export type UpdateSource = "mirror" | "github";
 
 export type UpdateStatus =
@@ -35,6 +37,7 @@ export type HistoryStatus =
   | "ocr_processing"
   | "ocr_failed"
   | "translating"
+  | "low_confidence"
   | "success"
   | "error";
 
@@ -47,6 +50,8 @@ export interface AppSettings {
    * triggers a clean rebuild.
    */
   ocrLanguages: string[];
+  ocrLanguageProfile: OcrLanguageProfile;
+  ocrPreprocessing: OcrPreprocessingSettings;
   apiProvider: ApiProvider;
   apiBaseUrl: string;
   apiKey: string;
@@ -84,6 +89,7 @@ export interface HistoryItem {
   sourceLanguage: string;
   targetLanguage: string;
   status: HistoryStatus;
+  ocrConfidence?: number;
   errorMessage?: string;
 }
 
@@ -130,9 +136,24 @@ export interface ScreenRect {
   height: number;
 }
 
+export interface OcrPreprocessingSettings {
+  enabled: boolean;
+  upscale: 1 | 2 | 3;
+  grayscale: boolean;
+  contrast: number;
+  threshold: {
+    enabled: boolean;
+    value?: number;
+  };
+}
+
+export interface ResultWindowMovePayload {
+  deltaX: number;
+  deltaY: number;
+}
+
 export interface CaptureSubmitPayload {
   displayId: number;
-  imageDataUrl: string;
   /**
    * The captured region in screen-coordinates (CSS px). Used to anchor the
    * result window near the selection instead of always centering on the
@@ -151,6 +172,7 @@ export interface AppEvent {
 
 export interface E2eMockCaptureOptions {
   ocrText?: string;
+  ocrConfidence?: number;
   translatedText?: string;
   translationError?: string;
 }
@@ -188,6 +210,7 @@ export interface ShotTranslateApi {
   submitCapture: (payload: CaptureSubmitPayload) => Promise<boolean>;
   cancelCapture: () => Promise<boolean>;
   writeClipboardText: (text: string) => Promise<boolean>;
+  moveResultWindow: (payload: ResultWindowMovePayload) => Promise<boolean>;
   closeResultWindow: () => Promise<boolean>;
   reportRendererError: (payload: { message: string; stack?: string }) => Promise<boolean>;
   onAppEvent: (listener: (event: AppEvent) => void) => () => void;

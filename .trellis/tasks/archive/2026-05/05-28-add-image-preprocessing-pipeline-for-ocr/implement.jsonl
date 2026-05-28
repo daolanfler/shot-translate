@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/backend/quality.md", "reason": "Main process service and import quality guidance."}
+{"file": ".trellis/spec/shared/code-quality.md", "reason": "Shared code quality constraints for preprocessing service and tests."}
+{"file": ".trellis/spec/shared/typescript.md", "reason": "Shared settings type and exported function typing guidance."}
+{"file": ".trellis/spec/guides/pre-implementation-checklist.md", "reason": "Checklist for new constants, options, and reusable service logic."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Settings flow crosses shared types, main workflow, and OCR service."}
+{"file": ".trellis/tasks/05-28-add-image-preprocessing-pipeline-for-ocr/research/preprocessing-pipeline-placement.md", "reason": "Task-specific research on placement, operations, debug hooks, and test risks."}
+{"file": ".trellis/tasks/05-28-add-image-preprocessing-pipeline-for-ocr/research/design-review-notes.md", "reason": "Sub-agent design review concerns to address during implementation."}

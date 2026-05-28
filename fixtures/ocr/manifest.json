@@ -1,0 +1,42 @@
+[
+  {
+    "id": "small-ui-text",
+    "description": "Small English UI labels and buttons.",
+    "file": "small-ui-text.svg",
+    "expectedText": "Shot Translate Settings History Updates Capture Translate Retry Translate",
+    "languages": ["eng"],
+    "requiredKeywords": ["settings", "history", "updates", "translate"],
+    "optionalKeywords": ["capture", "retry"],
+    "minKeywordRatio": 0.75
+  },
+  {
+    "id": "mixed-zh-en",
+    "description": "Simplified Chinese and English UI text in one crop.",
+    "file": "mixed-zh-en.svg",
+    "expectedText": "截图翻译 设置 OpenAI Model gpt-4.1-mini History 保存最近翻译结果",
+    "languages": ["eng", "chi_sim"],
+    "requiredKeywords": ["截图", "翻译", "openai", "model"],
+    "optionalKeywords": ["history", "设置"],
+    "minKeywordRatio": 0.75
+  },
+  {
+    "id": "low-contrast",
+    "description": "Muted secondary text and disabled-looking labels.",
+    "file": "low-contrast.svg",
+    "expectedText": "Proxy optional Network timeout settings Leave empty when no proxy is required",
+    "languages": ["eng"],
+    "requiredKeywords": ["proxy", "optional", "timeout"],
+    "optionalKeywords": ["network", "settings"],
+    "minKeywordRatio": 0.67
+  },
+  {
+    "id": "punctuation-numbers",
+    "description": "Shortcuts, versions, model names, and URL-like text.",
+    "file": "punctuation-numbers.svg",
+    "expectedText": "Shortcut Alt+S Version v0.1.0 Model gpt-4.1-mini https://api.openai.com/v1",
+    "languages": ["eng"],
+    "requiredPatterns": ["alt\\+s", "v\\s*0\\.1\\.0", "gpt-4\\.1-mini"],
+    "requiredKeywords": ["https", "api", "openai"],
+    "minKeywordRatio": 0.67
+  }
+]

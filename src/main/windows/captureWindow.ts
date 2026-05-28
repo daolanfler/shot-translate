@@ -1,6 +1,7 @@
 import path from "node:path";
 import { BrowserWindow, type Display } from "electron";
 import type { WindowContext } from "../../shared/types";
+import { openAllowedExternalUrl } from "./externalUrl";
 
 function buildUrl(hash: string) {
   const devUrl = process.env.ELECTRON_RENDERER_URL;
@@ -52,6 +53,10 @@ export function createCaptureWindow(
     }
   });
   window.loadURL(buildUrl("#/capture"));
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    openAllowedExternalUrl(url);
+    return { action: "deny" };
+  });
 
   return window;
 }

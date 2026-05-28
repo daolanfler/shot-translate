@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { AlertTriangle, RotateCcw } from "lucide-react";
+import { IconAlertTriangle, IconRefresh } from "@tabler/icons-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -39,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
       <div className="grid h-full place-items-center bg-background p-6">
         <div className="flex w-full max-w-md flex-col gap-4">
           <Alert variant="destructive">
-            <AlertTriangle className="size-4" />
+            <IconAlertTriangle className="size-4" />
             <AlertTitle>The window crashed.</AlertTitle>
             <AlertDescription className="font-mono text-xs">
               {this.state.error.message}
@@ -49,7 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
             The error has been logged. You can reload this window to try again.
           </p>
           <Button onClick={this.handleReload}>
-            <RotateCcw className="size-4" />
+            <IconRefresh className="size-4" />
             Reload window
           </Button>
         </div>

@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/05-28-move-screenshot-crop-flow-into-main-process/research/main-crop-boundary-notes.md", "reason": "Quality check should confirm coordinate-space and workflow-state risks were addressed."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Quality check should verify capture selection metadata and cropped image data flow across layers consistently."}

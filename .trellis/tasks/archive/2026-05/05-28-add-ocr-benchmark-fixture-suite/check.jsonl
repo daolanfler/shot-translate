@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/quality.md", "reason": "Quality checks and test expectations for benchmark tooling."}
+{"file": ".trellis/spec/shared/code-quality.md", "reason": "Final code quality constraints before commit."}
+{"file": ".trellis/spec/shared/pnpm-electron-setup.md", "reason": "Verify package script behavior for Electron tooling."}
+{"file": ".trellis/tasks/05-28-add-ocr-benchmark-fixture-suite/research/ocr-benchmark-fixture-suite.md", "reason": "Confirm implementation matches researched acceptance and caveats."}

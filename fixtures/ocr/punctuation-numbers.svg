@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="190" viewBox="0 0 620 190">
+  <rect width="620" height="190" fill="#ffffff"/>
+  <rect x="24" y="22" width="572" height="146" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="46" y="58" font-family="Consolas, Arial, sans-serif" font-size="16" fill="#111827">Shortcut: Alt+S</text>
+  <text x="46" y="92" font-family="Consolas, Arial, sans-serif" font-size="16" fill="#111827">Version: v0.1.0</text>
+  <text x="46" y="126" font-family="Consolas, Arial, sans-serif" font-size="16" fill="#111827">Model: gpt-4.1-mini</text>
+  <text x="46" y="154" font-family="Consolas, Arial, sans-serif" font-size="14" fill="#334155">https://api.openai.com/v1</text>
+</svg>

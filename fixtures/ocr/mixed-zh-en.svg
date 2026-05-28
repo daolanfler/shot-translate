@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="200" viewBox="0 0 560 200">
+  <rect width="560" height="200" fill="#ffffff"/>
+  <rect x="26" y="24" width="508" height="152" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="48" y="62" font-family="Microsoft YaHei UI, SimHei, Arial, sans-serif" font-size="20" fill="#0f172a">截图翻译 设置</text>
+  <text x="48" y="100" font-family="Microsoft YaHei UI, SimHei, Arial, sans-serif" font-size="16" fill="#1e293b">OpenAI Model: gpt-4.1-mini</text>
+  <text x="48" y="136" font-family="Microsoft YaHei UI, SimHei, Arial, sans-serif" font-size="15" fill="#334155">History 保存最近翻译结果</text>
+</svg>

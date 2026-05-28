@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Quality check should verify OCR confidence flows consistently across main, history, shared types, and renderer UI."}
+{"file": ".trellis/spec/frontend/components.md", "reason": "Quality check should verify low-confidence and correction controls remain accessible and clear."}

@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/quality.md", "reason": "Check main service quality and import rules."}
+{"file": ".trellis/spec/shared/code-quality.md", "reason": "Check code quality constraints before commit."}
+{"file": ".trellis/spec/shared/typescript.md", "reason": "Check exported type/interface shape and test typing."}
+{"file": ".trellis/tasks/05-28-add-ocr-provider-abstraction/research/tesseract-migration-lifecycle-errors.md", "reason": "Confirm lifecycle and error behavior stayed compatible."}
+{"file": ".trellis/tasks/05-28-add-ocr-provider-abstraction/research/test-strategy-and-task-dependencies.md", "reason": "Confirm provider boundary tests exist."}

@@ -25,6 +25,7 @@ interface E2eHarnessDeps {
 
 const defaultMockCaptureOptions: Required<E2eMockCaptureOptions> = {
   ocrText: "Hello world",
+  ocrConfidence: 99,
   translatedText: "你好，世界",
   translationError: ""
 };
@@ -40,7 +41,7 @@ export class E2eHarness {
     onProgress("Mock OCR complete");
     return {
       text: this.mockCaptureOptions.ocrText,
-      confidence: this.mockCaptureOptions.ocrText ? 99 : 0
+      confidence: this.mockCaptureOptions.ocrText ? this.mockCaptureOptions.ocrConfidence : 0
     };
   }
 
@@ -89,6 +90,7 @@ export class E2eHarness {
     ipcMain.handle("e2e:mockCaptureSubmit", async (_event, options?: E2eMockCaptureOptions) => {
       this.mockCaptureOptions = {
         ocrText: options?.ocrText ?? defaultMockCaptureOptions.ocrText,
+        ocrConfidence: options?.ocrConfidence ?? defaultMockCaptureOptions.ocrConfidence,
         translatedText: options?.translatedText ?? defaultMockCaptureOptions.translatedText,
         translationError: options?.translationError ?? defaultMockCaptureOptions.translationError
       };

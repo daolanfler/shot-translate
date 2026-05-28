@@ -1,5 +1,13 @@
-import { useEffect, useState, type CSSProperties } from "react";
-import { Check, ClipboardCopy, Loader2, Pencil, RotateCcw, X } from "lucide-react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
+import {
+  IconAlertTriangle,
+  IconCheck,
+  IconClipboard,
+  IconLoader2,
+  IconPencil,
+  IconRefresh,
+  IconX
+} from "@tabler/icons-react";
 import type { HistoryItem } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,6 +29,10 @@ function statusText(item: HistoryItem) {
     return "翻译完成";
   }
 
+  if (item.status === "low_confidence") {
+    return "OCR 置信度低，请核对原文";
+  }
+
   if (item.status === "ocr_failed") {
     return "OCR 失败";
   }
@@ -37,6 +49,8 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
   const [sourceDraft, setSourceDraft] = useState("");
   const [editingSource, setEditingSource] = useState(false);
   const [message, setMessage] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const dragStateRef = useRef<{ pointerId: number; screenX: number; screenY: number } | null>(null);
 
   async function refresh() {
     const next = await window.shotTranslate.getHistoryItem(historyId);
@@ -65,25 +79,92 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
   }
 
   const hasError = item.status === "error" || item.status === "ocr_failed";
+  const hasLowConfidence = item.status === "low_confidence";
   const isBusy = isBusyStatus(item.status);
   const hasSource = sourceDraft.trim().length > 0 || item.sourceText.trim().length > 0;
   const canRetry = hasSource && !isBusy;
+
+  function startDrag(event: PointerEvent<HTMLElement>) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      screenX: event.screenX,
+      screenY: event.screenY
+    };
+    setDragging(true);
+  }
+
+  function moveDrag(event: PointerEvent<HTMLElement>) {
+    const dragState = dragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const deltaX = event.screenX - dragState.screenX;
+    const deltaY = event.screenY - dragState.screenY;
+    if (deltaX === 0 && deltaY === 0) {
+      return;
+    }
+
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      screenX: event.screenX,
+      screenY: event.screenY
+    };
+    void window.shotTranslate.moveResultWindow({ deltaX, deltaY });
+  }
+
+  function stopDrag(event: PointerEvent<HTMLElement>) {
+    const dragState = dragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragStateRef.current = null;
+    setDragging(false);
+  }
 
   return (
     <div className="grid h-full place-items-center bg-transparent">
       <section className="flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl">
         <header
-          className="flex items-center justify-between gap-2 border-b bg-white px-4 py-3"
-          style={{ WebkitAppRegion: "drag" } as CSSProperties}
+          className={cn(
+            "flex cursor-move select-none items-center justify-between gap-2 border-b bg-white px-4 py-3",
+            dragging && "cursor-grabbing"
+          )}
+          onPointerDown={startDrag}
+          onPointerMove={moveDrag}
+          onPointerUp={stopDrag}
+          onPointerCancel={stopDrag}
         >
           <div className="flex items-center gap-3">
             <span
               className={cn(
                 "grid size-8 place-items-center rounded-xl",
-                hasError ? "bg-red-50 text-red-600" : isBusy ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
+                hasError
+                  ? "bg-red-50 text-red-600"
+                  : hasLowConfidence
+                    ? "bg-yellow-50 text-yellow-700"
+                    : isBusy
+                      ? "bg-blue-50 text-blue-600"
+                      : "bg-emerald-50 text-emerald-600"
               )}
             >
-              {isBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              {isBusy ? (
+                <IconLoader2 className="size-4 animate-spin" />
+              ) : hasLowConfidence ? (
+                <IconAlertTriangle className="size-4" />
+              ) : (
+                <IconCheck className="size-4" />
+              )}
             </span>
             <div>
               <p className="text-sm font-semibold">截图翻译</p>
@@ -94,11 +175,11 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
             variant="ghost"
             size="icon"
             className="size-7"
-            style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
+            onPointerDown={(event) => event.stopPropagation()}
             onClick={() => window.shotTranslate.closeResultWindow()}
             aria-label="关闭"
           >
-            <X className="size-4" />
+            <IconX className="size-4" />
           </Button>
         </header>
 
@@ -106,9 +187,19 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
           <div className="rounded-2xl bg-slate-50 px-4 py-3">
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-xs font-semibold text-muted-foreground">原文</p>
+              {item.ocrConfidence !== undefined ? (
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-xs font-medium",
+                    hasLowConfidence ? "bg-yellow-100 text-yellow-800" : "bg-slate-200 text-slate-600"
+                  )}
+                >
+                  OCR {Math.round(item.ocrConfidence)}%
+                </span>
+              ) : null}
               {!editingSource && item.sourceText ? (
                 <Button variant="ghost" size="xs" disabled={isBusy} onClick={() => setEditingSource(true)}>
-                  <Pencil className="size-3" />
+                  <IconPencil className="size-3" />
                   编辑原文
                 </Button>
               ) : null}
@@ -131,7 +222,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
             <p className="mb-2 text-xs font-semibold text-muted-foreground">译文</p>
             {item.status === "translating" ? (
               <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin text-primary" />
+                <IconLoader2 className="size-4 animate-spin text-primary" />
                 正在翻译...
               </div>
             ) : (
@@ -176,7 +267,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                   setMessage(next ? "已重新提交翻译。" : "重新翻译失败。");
                 }}
               >
-                <RotateCcw className="size-3.5" />
+                <IconRefresh className="size-3.5" />
                 重新翻译
               </Button>
             </>
@@ -191,10 +282,10 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                   setMessage("已复制原文。");
                 }}
               >
-                <ClipboardCopy className="size-3.5" />
+                <IconClipboard className="size-3.5" />
                 复制原文
               </Button>
-              {hasError && hasSource ? (
+              {(hasError || hasLowConfidence) && hasSource ? (
                 <Button
                   variant="outline"
                   size="sm"
@@ -205,7 +296,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                     setMessage(next ? "已重新提交翻译。" : "重新翻译失败。");
                   }}
                 >
-                  <RotateCcw className="size-3.5" />
+                  <IconRefresh className="size-3.5" />
                   重新翻译
                 </Button>
               ) : null}
@@ -217,7 +308,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                   setMessage("已复制译文。");
                 }}
               >
-                <ClipboardCopy className="size-3.5" />
+                <IconClipboard className="size-3.5" />
                 复制译文
               </Button>
             </>

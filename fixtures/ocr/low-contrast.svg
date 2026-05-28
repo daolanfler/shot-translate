@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="180" viewBox="0 0 540 180">
+  <rect width="540" height="180" fill="#f8fafc"/>
+  <rect x="28" y="24" width="484" height="132" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+  <text x="50" y="62" font-family="Arial, Segoe UI, sans-serif" font-size="16" fill="#64748b">Proxy optional</text>
+  <text x="50" y="94" font-family="Arial, Segoe UI, sans-serif" font-size="14" fill="#94a3b8">Network timeout settings</text>
+  <text x="50" y="126" font-family="Arial, Segoe UI, sans-serif" font-size="13" fill="#94a3b8">Leave empty when no proxy is required</text>
+</svg>

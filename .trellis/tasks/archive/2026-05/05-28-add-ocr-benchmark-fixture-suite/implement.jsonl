@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/quality.md", "reason": "Backend/script quality and test guidance for the benchmark command."}
+{"file": ".trellis/spec/shared/code-quality.md", "reason": "Shared code quality constraints for scripts and fixtures."}
+{"file": ".trellis/spec/shared/typescript.md", "reason": "Type guidance relevant to benchmark helpers and result objects."}
+{"file": ".trellis/spec/shared/pnpm-electron-setup.md", "reason": "Package script and Electron command conventions."}
+{"file": ".trellis/spec/guides/pre-implementation-checklist.md", "reason": "Pre-coding checklist for constants, new logic, and types."}
+{"file": ".trellis/tasks/05-28-add-ocr-benchmark-fixture-suite/research/ocr-benchmark-fixture-suite.md", "reason": "Task-specific research on fixture categories, assertions, runtime metrics, and command design."}

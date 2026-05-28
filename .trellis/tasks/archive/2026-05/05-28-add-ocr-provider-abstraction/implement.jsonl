@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/backend/quality.md", "reason": "Main process service import and quality guidance."}
+{"file": ".trellis/spec/shared/code-quality.md", "reason": "Shared code quality constraints for provider and tests."}
+{"file": ".trellis/spec/shared/typescript.md", "reason": "Explicit exported types and interface guidance."}
+{"file": ".trellis/spec/guides/pre-implementation-checklist.md", "reason": "Pre-coding checklist for provider constants, interfaces, and reuse."}
+{"file": ".trellis/tasks/05-28-add-ocr-provider-abstraction/research/provider-interface-shape.md", "reason": "Task-specific provider contract recommendations."}
+{"file": ".trellis/tasks/05-28-add-ocr-provider-abstraction/research/tesseract-migration-lifecycle-errors.md", "reason": "Migration and lifecycle/error behavior to preserve."}
+{"file": ".trellis/tasks/05-28-add-ocr-provider-abstraction/research/test-strategy-and-task-dependencies.md", "reason": "Recommended unit coverage and dependency sequencing."}

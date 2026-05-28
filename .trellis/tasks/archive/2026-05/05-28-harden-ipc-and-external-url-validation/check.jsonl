@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/ipc-electron.md", "reason": "Quality check should confirm privileged Electron work remains behind preload/main IPC."}
+{"file": ".trellis/spec/frontend/electron-browser-api-restrictions.md", "reason": "Quality check should confirm external URL opening is protocol-restricted."}
+{"file": ".trellis/spec/shared/code-quality.md", "reason": "Quality check should confirm validators have focused tests and no unsafe type bypasses."}

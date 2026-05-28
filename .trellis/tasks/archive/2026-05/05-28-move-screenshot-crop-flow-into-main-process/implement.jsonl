@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/05-28-move-screenshot-crop-flow-into-main-process/research/main-crop-boundary-notes.md", "reason": "Research note describes the current renderer crop boundary, coordinate risks, and recommended implementation order."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "The crop contract crosses renderer selection UI, preload/shared types, main IPC, and OCR workflow."}
+{"file": ".trellis/spec/frontend/ipc-electron.md", "reason": "The renderer should submit selection metadata over the narrow preload bridge without privileged APIs."}

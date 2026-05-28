@@ -7,6 +7,7 @@ import type {
   E2eMockCaptureOptions,
   E2eState,
   HistoryItem,
+  ResultWindowMovePayload,
   ServiceResult,
   UpdateSettings,
   UpdateSource,
@@ -45,6 +46,8 @@ const api = {
     ipcRenderer.invoke("capture:submit", payload) as Promise<boolean>,
   cancelCapture: () => ipcRenderer.invoke("capture:cancel") as Promise<boolean>,
   writeClipboardText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text) as Promise<boolean>,
+  moveResultWindow: (payload: ResultWindowMovePayload) =>
+    ipcRenderer.invoke("result:move", payload) as Promise<boolean>,
   closeResultWindow: () => ipcRenderer.invoke("result:close") as Promise<boolean>,
   reportRendererError: (payload: { message: string; stack?: string }) =>
     ipcRenderer.invoke("log:rendererError", payload) as Promise<boolean>,

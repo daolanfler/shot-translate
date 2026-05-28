@@ -205,7 +205,8 @@ Use **BEM naming convention** to prevent class name conflicts:
 | Simple components, one-off styles | Tailwind utility classes |
 | Complex components, reusable      | BEM + CSS file           |
 | Dynamic state toggling in JS      | BEM modifier classes     |
-| Component library (shadcn/ui)     | Use built-in variants    |
+| Main-window component library     | Use Mantine props and variants |
+| Overlay/result primitives         | Use Tailwind utilities or local primitives |
 
 ---
 
