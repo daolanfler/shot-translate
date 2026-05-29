@@ -34,7 +34,8 @@ import { createMainWindow } from "./windows/mainWindow";
 import { createResultWindow } from "./windows/resultWindow";
 import { cropCaptureSourceToDataUrl } from "./services/captureCrop";
 import { buildCaptureSource } from "./services/captureSource";
-import { createShortcutManager } from "./services/shortcut";
+import { createSettingsUpdateManager } from "./services/settingsUpdateManager";
+import { createShortcutRegistrar } from "./services/shortcut";
 import { installIpcHandlers } from "./ipcHandlers";
 
 type WorkflowState = "idle" | "capturing" | "processing";
@@ -64,11 +65,14 @@ let workflowState: WorkflowState = "idle";
 let updateService: UpdateService | null = null;
 const e2eHarness = IS_E2E ? new E2eHarness() : null;
 const windowContexts = new Map<number, WindowContext>();
-const shortcutManager = createShortcutManager({
-  isE2e: IS_E2E,
+const shortcutRegistrar = createShortcutRegistrar({
   onCapture: () => {
     void startCaptureFlow();
   }
+});
+const settingsUpdateManager = createSettingsUpdateManager({
+  isE2e: IS_E2E,
+  shortcutRegistrar
 });
 
 function setWorkflowState(next: WorkflowState, message?: string) {
@@ -427,7 +431,7 @@ app.whenReady().then(() => {
     getContextForSender,
     getResultWindow: () => resultWindow,
     requireUpdateService,
-    updateSettingsSafely: shortcutManager.updateSettingsSafely,
+    updateSettingsSafely: settingsUpdateManager.updateSettingsSafely,
     getCaptureSource,
     startCaptureFlow,
     cropCaptureSelection,
@@ -444,7 +448,7 @@ app.whenReady().then(() => {
   });
   showMainWindow();
   if (!IS_E2E) {
-    shortcutManager.registerShortcut(getSettings());
+    shortcutRegistrar.register(getSettings());
     updateService.startStartupCheck();
   }
 
@@ -471,5 +475,5 @@ app.on("before-quit", (event) => {
 });
 
 app.on("will-quit", () => {
-  shortcutManager.unregisterAll();
+  shortcutRegistrar.unregisterAll();
 });
