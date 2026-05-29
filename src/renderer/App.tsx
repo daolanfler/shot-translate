@@ -5,6 +5,7 @@ import type { WindowContext } from "../shared/types";
 import { CaptureOverlay } from "./screens/CaptureOverlay";
 import { MainShell } from "./screens/MainShell";
 import { ResultOverlay } from "./screens/ResultOverlay";
+import { formatActionError } from "./lib/errors";
 
 const theme = createTheme({
   fontFamily:
@@ -15,10 +16,25 @@ const theme = createTheme({
 
 export function App() {
   const [context, setContext] = useState<WindowContext | null>(null);
+  const [contextError, setContextError] = useState("");
 
   useEffect(() => {
-    window.shotTranslate.getWindowContext().then(setContext);
+    window.shotTranslate
+      .getWindowContext()
+      .then(setContext)
+      .catch((error: unknown) => {
+        console.error("[App] Failed to load window context", error);
+        setContextError(formatActionError("Failed to load window context", error));
+      });
   }, []);
+
+  if (contextError) {
+    return (
+      <div className="grid h-full place-items-center bg-background p-6 text-sm text-red-600">
+        {contextError}
+      </div>
+    );
+  }
 
   if (!context) {
     return (

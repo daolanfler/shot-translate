@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   AppShell,
@@ -46,6 +46,7 @@ import type {
   UpdateStatus
 } from "../../shared/types";
 import { useUpdateState } from "../hooks/useUpdateState";
+import { formatActionError } from "../lib/errors";
 import { UpdateService } from "../services/UpdateService";
 
 const targetLanguageOptions = [
@@ -96,6 +97,23 @@ const ocrLanguageProfiles: Array<{
     languages: []
   }
 ];
+
+type NoticeColor = "blue" | "red";
+
+interface NoticeState {
+  message: string;
+  color: NoticeColor;
+}
+
+type ShowError = (action: string, error: unknown) => void;
+
+function copySettingsFields(source: AppSettings, fields: Array<keyof AppSettings>): Partial<AppSettings> {
+  const patch: Partial<AppSettings> = {};
+  for (const field of fields) {
+    Object.assign(patch, { [field]: source[field] });
+  }
+  return patch;
+}
 
 function statusLabel(status: HistoryItem["status"]): string {
   switch (status) {
@@ -174,15 +192,18 @@ function updateBadgeColor(status: UpdateStatus | undefined): string {
 
 export function MainShell() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [settingsLoadError, setSettingsLoadError] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [busyMessage, setBusyMessage] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState<NoticeState | null>(null);
   const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
   const [apiResult, setApiResult] = useState<ServiceResult | null>(null);
   const [testingApi, setTestingApi] = useState(false);
   const { updateState } = useUpdateState();
   const location = useLocation();
   const navigate = useNavigate();
+  const saveSettingsTokenRef = useRef(0);
+  const latestSaveTokenByFieldRef = useRef<Partial<Record<keyof AppSettings, number>>>({});
 
   const updateVersion = updateState?.availableVersion ?? null;
   const shouldShowUpdateModal =
@@ -190,13 +211,48 @@ export function MainShell() {
     updateVersion !== null &&
     dismissedUpdateVersion !== updateVersion;
 
-  async function refreshHistory() {
-    const items = await window.shotTranslate.listHistory();
-    setHistory(items);
+  function showNotice(message: string, color: NoticeColor = "blue"): void {
+    setNotice({ message, color });
+  }
+
+  function showError(action: string, error: unknown): void {
+    console.error(`[MainShell] ${action}`, error);
+    showNotice(formatActionError(action, error), "red");
+  }
+
+  async function refreshHistory(): Promise<void> {
+    try {
+      const items = await window.shotTranslate.listHistory();
+      setHistory(items);
+    } catch (error) {
+      showError("Failed to refresh history", error);
+    }
+  }
+
+  async function startCapture(): Promise<void> {
+    try {
+      await window.shotTranslate.startCapture();
+    } catch (error) {
+      showError("Failed to start capture", error);
+    }
+  }
+
+  async function downloadUpdate(): Promise<void> {
+    try {
+      await UpdateService.downloadUpdate();
+    } catch (error) {
+      showError("Failed to download update", error);
+    }
   }
 
   useEffect(() => {
-    window.shotTranslate.getSettings().then(setSettings);
+    window.shotTranslate
+      .getSettings()
+      .then(setSettings)
+      .catch((error: unknown) => {
+        console.error("[MainShell] Failed to load settings", error);
+        setSettingsLoadError(formatActionError("Failed to load settings", error));
+      });
     void refreshHistory();
 
     return window.shotTranslate.onAppEvent((event: AppEvent) => {
@@ -205,7 +261,7 @@ export function MainShell() {
       }
 
       if (event.type === "settings-updated" && event.payload?.message) {
-        setNotice(event.payload.message);
+        showNotice(event.payload.message);
       }
 
       if (event.type === "workflow-status") {
@@ -226,19 +282,46 @@ export function MainShell() {
     return "Ready";
   }, [busyMessage, settings?.apiKey]);
 
-  async function saveSettings(patch: Partial<AppSettings>) {
+  async function saveSettings(patch: Partial<AppSettings>): Promise<void> {
     if (!settings) {
       return;
     }
 
-    const next = { ...settings, ...patch };
-    setSettings(next);
-    const result = await window.shotTranslate.updateSettings(patch);
-    setSettings(result.settings);
-    setNotice(result.message);
+    const fields = Object.keys(patch) as Array<keyof AppSettings>;
+    if (fields.length === 0) {
+      return;
+    }
+
+    const saveToken = saveSettingsTokenRef.current + 1;
+    saveSettingsTokenRef.current = saveToken;
+    for (const field of fields) {
+      latestSaveTokenByFieldRef.current[field] = saveToken;
+    }
+
+    const previous = settings;
+    setSettings((current) => (current ? { ...current, ...patch } : current));
+    try {
+      const result = await window.shotTranslate.updateSettings(patch);
+      const latestFields = fields.filter((field) => latestSaveTokenByFieldRef.current[field] === saveToken);
+      if (latestFields.length > 0) {
+        // Saves can overlap; only apply fields that have not been superseded by a newer save.
+        setSettings((current) => (current ? { ...current, ...copySettingsFields(result.settings, latestFields) } : result.settings));
+        showNotice(result.message);
+      }
+    } catch (error) {
+      const latestFields = fields.filter((field) => latestSaveTokenByFieldRef.current[field] === saveToken);
+      if (latestFields.length > 0) {
+        // Avoid stale failures rolling back newer user edits for the same setting fields.
+        setSettings((current) => (current ? { ...current, ...copySettingsFields(previous, latestFields) } : previous));
+        showError("Failed to save settings", error);
+        return;
+      }
+
+      console.error("[MainShell] Ignored stale settings save failure", error);
+    }
   }
 
-  async function testApiConnection() {
+  async function testApiConnection(): Promise<void> {
     if (!settings) {
       return;
     }
@@ -247,10 +330,25 @@ export function MainShell() {
     try {
       const result = await window.shotTranslate.testApiConnection(settings);
       setApiResult(result);
-      setNotice(result.message);
+      showNotice(result.message, result.ok ? "blue" : "red");
+    } catch (error) {
+      const message = formatActionError("API connection test failed", error);
+      console.error("[MainShell] API connection test failed", error);
+      setApiResult({ ok: false, message, code: "unknown" });
+      showNotice(message, "red");
     } finally {
       setTestingApi(false);
     }
+  }
+
+  if (settingsLoadError) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background p-6">
+        <Alert color="red" icon={<IconAlertCircle size={18} />} title="Failed to load settings">
+          {settingsLoadError}
+        </Alert>
+      </div>
+    );
   }
 
   if (!settings) {
@@ -280,7 +378,7 @@ export function MainShell() {
             <Button variant="subtle" onClick={() => setDismissedUpdateVersion(updateVersion)}>
               Later
             </Button>
-            <Button leftSection={<IconDownload size={16} />} onClick={() => void UpdateService.downloadUpdate()}>
+            <Button leftSection={<IconDownload size={16} />} onClick={() => void downloadUpdate()}>
               Download
             </Button>
           </Group>
@@ -362,7 +460,7 @@ export function MainShell() {
               <Text size="sm" fw={600}>
                 {statusText}
               </Text>
-              <Button size="xs" fullWidth leftSection={<IconCamera size={15} />} onClick={() => window.shotTranslate.startCapture()}>
+              <Button size="xs" fullWidth leftSection={<IconCamera size={15} />} onClick={() => void startCapture()}>
                 Capture now
               </Button>
             </Stack>
@@ -373,8 +471,8 @@ export function MainShell() {
           <ScrollArea h="calc(100vh - 32px)" offsetScrollbars>
             <Stack gap="lg" maw={880} mx="auto" pb="lg">
               {notice ? (
-                <Alert color="blue" variant="light" title="Notice" withCloseButton onClose={() => setNotice("")}>
-                  {notice}
+                <Alert color={notice.color} variant="light" title="Notice" withCloseButton onClose={() => setNotice(null)}>
+                  {notice.message}
                 </Alert>
               ) : null}
 
@@ -387,13 +485,24 @@ export function MainShell() {
                       apiResult={apiResult}
                       settings={settings}
                       saveSettings={saveSettings}
+                      startCapture={startCapture}
                       testApiConnection={testApiConnection}
                       testingApi={testingApi}
                     />
                   }
                 />
-                <Route path="/history" element={<HistoryView history={history} refreshHistory={refreshHistory} />} />
-                <Route path="/updates" element={<UpdatesView />} />
+                <Route
+                  path="/history"
+                  element={
+                    <HistoryView
+                      history={history}
+                      refreshHistory={refreshHistory}
+                      showError={showError}
+                      showNotice={showNotice}
+                    />
+                  }
+                />
+                <Route path="/updates" element={<UpdatesView downloadUpdate={downloadUpdate} showError={showError} />} />
                 <Route path="*" element={<Navigate to="/settings" replace />} />
               </Routes>
             </Stack>
@@ -407,12 +516,14 @@ export function MainShell() {
 function SettingsView({
   settings,
   saveSettings,
+  startCapture,
   apiResult,
   testApiConnection,
   testingApi
 }: {
   settings: AppSettings;
   saveSettings: (patch: Partial<AppSettings>) => Promise<void>;
+  startCapture: () => Promise<void>;
   apiResult: ServiceResult | null;
   testApiConnection: () => Promise<void>;
   testingApi: boolean;
@@ -440,7 +551,7 @@ function SettingsView({
               Global shortcut and startup behavior.
             </Text>
           </div>
-          <Button leftSection={<IconCamera size={16} />} onClick={() => window.shotTranslate.startCapture()}>
+          <Button leftSection={<IconCamera size={16} />} onClick={() => void startCapture()}>
             Capture now
           </Button>
         </Group>
@@ -577,7 +688,55 @@ function SettingsView({
   );
 }
 
-function HistoryView({ history, refreshHistory }: { history: HistoryItem[]; refreshHistory: () => Promise<void> }) {
+function HistoryView({
+  history,
+  refreshHistory,
+  showError,
+  showNotice
+}: {
+  history: HistoryItem[];
+  refreshHistory: () => Promise<void>;
+  showError: ShowError;
+  showNotice: (message: string, color?: NoticeColor) => void;
+}) {
+  async function clearHistory(): Promise<void> {
+    try {
+      await window.shotTranslate.clearHistory();
+      await refreshHistory();
+      showNotice("History cleared.");
+    } catch (error) {
+      showError("Failed to clear history", error);
+    }
+  }
+
+  async function retryHistoryItem(item: HistoryItem): Promise<void> {
+    try {
+      const next = await window.shotTranslate.retryHistoryItem(item.id, item.sourceText);
+      showNotice(next ? "Retry started." : "Retry failed.", next ? "blue" : "red");
+    } catch (error) {
+      showError("Failed to retry history item", error);
+    }
+  }
+
+  async function deleteHistoryItem(id: string): Promise<void> {
+    try {
+      await window.shotTranslate.deleteHistoryItem(id);
+      await refreshHistory();
+      showNotice("History item deleted.");
+    } catch (error) {
+      showError("Failed to delete history item", error);
+    }
+  }
+
+  async function copyTranslation(text: string): Promise<void> {
+    try {
+      await window.shotTranslate.writeClipboardText(text);
+      showNotice("Translation copied.");
+    } catch (error) {
+      showError("Failed to copy translation", error);
+    }
+  }
+
   return (
     <>
       <Group justify="space-between" align="flex-start">
@@ -591,10 +750,7 @@ function HistoryView({ history, refreshHistory }: { history: HistoryItem[]; refr
           variant="light"
           color="red"
           leftSection={<IconTrash size={16} />}
-          onClick={async () => {
-            await window.shotTranslate.clearHistory();
-            await refreshHistory();
-          }}
+          onClick={() => void clearHistory()}
         >
           Clear
         </Button>
@@ -642,7 +798,7 @@ function HistoryView({ history, refreshHistory }: { history: HistoryItem[]; refr
                   size="xs"
                   leftSection={<IconRefresh size={14} />}
                   disabled={!item.sourceText}
-                  onClick={() => window.shotTranslate.retryHistoryItem(item.id, item.sourceText)}
+                  onClick={() => void retryHistoryItem(item)}
                 >
                   Retry
                 </Button>
@@ -651,10 +807,7 @@ function HistoryView({ history, refreshHistory }: { history: HistoryItem[]; refr
                   size="xs"
                   color="red"
                   leftSection={<IconTrash size={14} />}
-                  onClick={async () => {
-                    await window.shotTranslate.deleteHistoryItem(item.id);
-                    await refreshHistory();
-                  }}
+                  onClick={() => void deleteHistoryItem(item.id)}
                 >
                   Delete
                 </Button>
@@ -663,7 +816,7 @@ function HistoryView({ history, refreshHistory }: { history: HistoryItem[]; refr
                   size="xs"
                   leftSection={<IconClipboard size={14} />}
                   disabled={!item.translatedText}
-                  onClick={() => window.shotTranslate.writeClipboardText(item.translatedText)}
+                  onClick={() => void copyTranslation(item.translatedText)}
                 >
                   Copy
                 </Button>
@@ -676,9 +829,33 @@ function HistoryView({ history, refreshHistory }: { history: HistoryItem[]; refr
   );
 }
 
-function UpdatesView() {
+function UpdatesView({ downloadUpdate, showError }: { downloadUpdate: () => Promise<void>; showError: ShowError }) {
   const { updateState } = useUpdateState();
   const updateProgress = updateState?.downloadProgress ?? 0;
+
+  async function setUpdateSource(source: UpdateSource): Promise<void> {
+    try {
+      await UpdateService.setSource(source);
+    } catch (error) {
+      showError("Failed to change update source", error);
+    }
+  }
+
+  async function checkForUpdates(): Promise<void> {
+    try {
+      await UpdateService.checkForUpdates();
+    } catch (error) {
+      showError("Failed to check for updates", error);
+    }
+  }
+
+  async function installUpdate(): Promise<void> {
+    try {
+      await UpdateService.installUpdate();
+    } catch (error) {
+      showError("Failed to install update", error);
+    }
+  }
 
   return (
     <>
@@ -711,7 +888,7 @@ function UpdatesView() {
               value={updateState?.source ?? "mirror"}
               disabled={updateState?.isChecking || updateState?.isDownloading}
               onChange={(value) => {
-                void UpdateService.setSource(value as UpdateSource);
+                void setUpdateSource(value as UpdateSource);
               }}
               data={[
                 { label: "ghfast mirror", value: "mirror" },
@@ -759,7 +936,7 @@ function UpdatesView() {
               leftSection={<IconRefresh size={16} />}
               loading={updateState?.isChecking}
               disabled={updateState?.isDownloading}
-              onClick={() => void UpdateService.checkForUpdates()}
+              onClick={() => void checkForUpdates()}
             >
               Check for updates
             </Button>
@@ -768,14 +945,14 @@ function UpdatesView() {
               <Button
                 leftSection={<IconDownload size={16} />}
                 loading={updateState.isDownloading}
-                onClick={() => void UpdateService.downloadUpdate()}
+                onClick={() => void downloadUpdate()}
               >
                 Download update
               </Button>
             ) : null}
 
             {updateState?.isUpdateDownloaded ? (
-              <Button color="green" leftSection={<IconRocket size={16} />} onClick={() => void UpdateService.installUpdate()}>
+              <Button color="green" leftSection={<IconRocket size={16} />} onClick={() => void installUpdate()}>
                 Restart and install
               </Button>
             ) : null}
