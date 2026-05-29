@@ -402,3 +402,36 @@ Added renderer-side handling for rejected IPC invocations across capture, settin
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: Clarify settings update manager naming
+
+**Date**: 2026-05-29
+**Task**: Clarify settings update manager naming
+**Branch**: `codex/zod-ipc-validation-and-trellis-assets`
+
+### Summary
+
+Split generic settings update coordination from shortcut registration naming by adding a settings update manager and keeping shortcut-specific registration in shortcut service.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1989f87` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
