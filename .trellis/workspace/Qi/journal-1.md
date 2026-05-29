@@ -336,3 +336,36 @@ Migrated IPC payload validation to Zod schemas with expanded tests, then tracked
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: Document ready PR default
+
+**Date**: 2026-05-29
+**Task**: Document ready PR default
+**Branch**: `codex/zod-ipc-validation-and-trellis-assets`
+
+### Summary
+
+Documented that Codex-created GitHub pull requests should be ready for review by default unless the user explicitly asks for a draft.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `883efa1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
