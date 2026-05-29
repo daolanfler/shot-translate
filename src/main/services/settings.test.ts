@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const persisted: Record<string, unknown> = {};
 const loginItemSettings = vi.fn();
+const readJsonFile = vi.fn((name: string, fallback: unknown) => persisted[name] ?? fallback);
+const writeJsonFile = vi.fn(async (name: string, value: unknown) => {
+  persisted[name] = value;
+});
 
 vi.mock("electron", () => ({
   app: {
@@ -13,10 +17,8 @@ vi.mock("electron", () => ({
 }));
 
 vi.mock("./store", () => ({
-  readJsonFile: vi.fn((name: string, fallback: unknown) => persisted[name] ?? fallback),
-  writeJsonFile: vi.fn(async (name: string, value: unknown) => {
-    persisted[name] = value;
-  })
+  readJsonFile,
+  writeJsonFile
 }));
 
 describe("settings service OCR language profiles", () => {
@@ -26,6 +28,11 @@ describe("settings service OCR language profiles", () => {
     }
 
     loginItemSettings.mockReset();
+    readJsonFile.mockClear();
+    writeJsonFile.mockClear();
+    writeJsonFile.mockImplementation(async (name: string, value: unknown) => {
+      persisted[name] = value;
+    });
     const settings = await import("./settings");
     settings.resetSettingsForTests();
   });
@@ -67,6 +74,51 @@ describe("settings service OCR language profiles", () => {
     expect(persisted["settings.json"]).toMatchObject({
       ocrLanguageProfile: "english",
       ocrLanguages: ["eng"]
+    });
+  });
+
+  it("serializes concurrent updates so later patches persist on top of earlier patches", async () => {
+    const pendingWrites: Array<{ name: string; value: unknown; resolve: () => void }> = [];
+    writeJsonFile.mockImplementation(
+      (name: string, value: unknown) =>
+        new Promise<void>((resolve) => {
+          pendingWrites.push({
+            name,
+            value,
+            resolve: () => {
+              persisted[name] = value;
+              resolve();
+            }
+          });
+        })
+    );
+    const settings = await import("./settings");
+
+    const first = settings.updateSettings({ model: "first-model" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(pendingWrites).toHaveLength(1);
+
+    const second = settings.updateSettings({ targetLanguage: "en" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(pendingWrites).toHaveLength(1);
+
+    pendingWrites[0].resolve();
+    await expect(first).resolves.toMatchObject({ model: "first-model", targetLanguage: "zh-CN" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(pendingWrites).toHaveLength(2);
+    expect(pendingWrites[1].value).toMatchObject({
+      model: "first-model",
+      targetLanguage: "en"
+    });
+
+    pendingWrites[1].resolve();
+    await expect(second).resolves.toMatchObject({ model: "first-model", targetLanguage: "en" });
+    expect(persisted["settings.json"]).toMatchObject({
+      model: "first-model",
+      targetLanguage: "en"
     });
   });
 });

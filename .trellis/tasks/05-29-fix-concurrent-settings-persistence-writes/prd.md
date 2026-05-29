@@ -20,12 +20,12 @@ There is a second related risk in `writeJsonFile()`: concurrent writes in the sa
 
 ## Acceptance Criteria
 
-* [ ] Concurrent `updateSettings()` calls cannot persist an older snapshot after a newer update completes.
-* [ ] Concurrent writes do not reuse the same temp filename.
-* [ ] Existing settings tests continue to pass.
-* [ ] `pnpm typecheck` passes.
-* [ ] `pnpm test` passes.
-* [ ] `pnpm build` passes if main-process code changes require packaged-flow verification.
+* [x] Concurrent `updateSettings()` calls cannot persist an older snapshot after a newer update completes.
+* [x] Concurrent writes do not reuse the same temp filename.
+* [x] Existing settings tests continue to pass.
+* [x] `pnpm typecheck` passes.
+* [x] `pnpm test` passes.
+* [x] `pnpm build` passes if main-process code changes require packaged-flow verification.
 
 ## Out of Scope
 

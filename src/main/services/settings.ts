@@ -29,9 +29,11 @@ export const defaultSettings: AppSettings = {
 };
 
 let cachedSettings: AppSettings | null = null;
+let settingsWriteQueue: Promise<void> = Promise.resolve();
 
 export function resetSettingsForTests(): void {
   cachedSettings = null;
+  settingsWriteQueue = Promise.resolve();
 }
 
 function decryptApiKey(stored: string): string {
@@ -124,6 +126,15 @@ async function persistSettings(plaintext: AppSettings): Promise<void> {
   });
 }
 
+function enqueueSettingsWrite<T>(operation: () => Promise<T>): Promise<T> {
+  const queued = settingsWriteQueue.then(operation, operation);
+  settingsWriteQueue = queued.then(
+    () => undefined,
+    () => undefined
+  );
+  return queued;
+}
+
 export function getSettings(): AppSettings {
   if (cachedSettings) {
     return cachedSettings;
@@ -142,7 +153,11 @@ export function getSettings(): AppSettings {
   // sitting on disk. Fire and forget — cached settings are already correct in
   // memory, and a failed write just means we re-migrate next launch.
   if (isLegacyPlaintext) {
-    void persistSettings(cachedSettings).catch((error) => {
+    void enqueueSettingsWrite(async () => {
+      if (cachedSettings) {
+        await persistSettings(cachedSettings);
+      }
+    }).catch((error) => {
       console.error("Failed to migrate legacy plaintext apiKey.", error);
     });
   }
@@ -151,17 +166,21 @@ export function getSettings(): AppSettings {
 }
 
 export async function updateSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
-  cachedSettings = normalizeSettings({
-    ...getSettings(),
-    ...patch
-  });
-
-  if (process.env.SHOT_TRANSLATE_E2E !== "1") {
-    app.setLoginItemSettings({
-      openAtLogin: cachedSettings.launchOnStartup
+  return enqueueSettingsWrite(async () => {
+    const nextSettings = normalizeSettings({
+      ...getSettings(),
+      ...patch
     });
-  }
 
-  await persistSettings(cachedSettings);
-  return cachedSettings;
+    await persistSettings(nextSettings);
+    cachedSettings = nextSettings;
+
+    if (process.env.SHOT_TRANSLATE_E2E !== "1") {
+      app.setLoginItemSettings({
+        openAtLogin: cachedSettings.launchOnStartup
+      });
+    }
+
+    return cachedSettings;
+  });
 }

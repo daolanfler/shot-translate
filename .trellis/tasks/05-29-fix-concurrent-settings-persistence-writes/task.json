@@ -3,7 +3,7 @@
   "name": "fix-concurrent-settings-persistence-writes",
   "title": "Fix concurrent settings persistence writes",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

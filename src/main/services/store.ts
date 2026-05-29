@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { app } from "electron";
 
+let writeSequence = 0;
+
 function ensureDir(filePath: string) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
@@ -29,7 +31,8 @@ export function readJsonFile<T>(name: string, fallback: T): T {
 export async function writeJsonFile(name: string, value: unknown): Promise<void> {
   const filePath = path.join(app.getPath("userData"), name);
   ensureDir(filePath);
-  const tmpPath = `${filePath}.${process.pid}.tmp`;
+  writeSequence += 1;
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.${writeSequence}.tmp`;
   await fs.promises.writeFile(tmpPath, JSON.stringify(value, null, 2), "utf-8");
   await fs.promises.rename(tmpPath, filePath);
 }
