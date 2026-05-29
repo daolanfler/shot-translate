@@ -435,3 +435,36 @@ Split generic settings update coordination from shortcut registration naming by 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: Fix concurrent settings persistence writes
+
+**Date**: 2026-05-29
+**Task**: Fix concurrent settings persistence writes
+**Branch**: `codex/zod-ipc-validation-and-trellis-assets`
+
+### Summary
+
+Serialized main-process settings writes and made JSON temp file paths unique so concurrent settings updates cannot persist stale snapshots or collide on temp files.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5d3b38f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
