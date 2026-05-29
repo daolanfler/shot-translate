@@ -369,3 +369,36 @@ Documented that Codex-created GitHub pull requests should be ready for review by
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: Handle renderer IPC invocation errors
+
+**Date**: 2026-05-29
+**Task**: Handle renderer IPC invocation errors
+**Branch**: `codex/zod-ipc-validation-and-trellis-assets`
+
+### Summary
+
+Added renderer-side handling for rejected IPC invocations across capture, settings, history, updates, and result overlays; documented the IPC rejection handling convention.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `297ec8c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

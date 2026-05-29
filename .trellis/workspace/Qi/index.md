@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 11
+- **Total Sessions**: 12
 - **Last Active**: 2026-05-29
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~371 | Active |
+| `journal-1.md` | ~404 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 12 | 2026-05-29 | Handle renderer IPC invocation errors | `297ec8c` | `codex/zod-ipc-validation-and-trellis-assets` |
 | 11 | 2026-05-29 | Document ready PR default | `883efa1` | `codex/zod-ipc-validation-and-trellis-assets` |
 | 10 | 2026-05-28 | Zod IPC validation and Codex Trellis assets | `c405309`, `3884bca` | `-` |
 | 9 | 2026-05-28 | Add Zod IPC validation task | `ae6df17` | `main` |
