@@ -1,11 +1,18 @@
 import { app, safeStorage } from "electron";
-import type { AppSettings, OcrLanguageProfile, OcrPreprocessingSettings } from "../../shared/types";
+import {
+  appSettingsSchema,
+  storedSettingsSchema,
+  type AppSettings,
+  type OcrLanguageProfile,
+  type OcrPreprocessingSettings,
+  type StoredSettings
+} from "../../shared/types";
 import { readJsonFile, writeJsonFile } from "./store";
 
 const SETTINGS_FILE = "settings.json";
 const ENCRYPTED_PREFIX = "enc:v1:";
 
-export const defaultSettings: AppSettings = {
+export const defaultSettings: AppSettings = appSettingsSchema.parse({
   // Alt+S avoids the common Ctrl+Shift+T browser "reopen closed tab" conflict.
   shortcut: "Alt+S",
   targetLanguage: "zh-CN",
@@ -26,7 +33,7 @@ export const defaultSettings: AppSettings = {
   apiProxyUrl: "",
   model: "gpt-4.1-mini",
   launchOnStartup: false
-};
+});
 
 let cachedSettings: AppSettings | null = null;
 let settingsWriteQueue: Promise<void> = Promise.resolve();
@@ -95,7 +102,13 @@ function inferOcrLanguageProfile(languages: string[]): OcrLanguageProfile {
   return (match?.[0] as OcrLanguageProfile | undefined) ?? "manual";
 }
 
-function normalizeOcrPreprocessing(raw: Partial<OcrPreprocessingSettings> | undefined): OcrPreprocessingSettings {
+type OcrPreprocessingSettingsInput = Partial<
+  Omit<OcrPreprocessingSettings, "threshold"> & {
+    threshold: Partial<OcrPreprocessingSettings["threshold"]>;
+  }
+>;
+
+function normalizeOcrPreprocessing(raw: OcrPreprocessingSettingsInput | undefined): OcrPreprocessingSettings {
   return {
     ...defaultSettings.ocrPreprocessing,
     ...raw,
@@ -106,17 +119,28 @@ function normalizeOcrPreprocessing(raw: Partial<OcrPreprocessingSettings> | unde
   };
 }
 
-function normalizeSettings(raw: Partial<AppSettings>): AppSettings {
-  const ocrLanguages = normalizeOcrLanguages(raw.ocrLanguages);
-  const ocrLanguageProfile = raw.ocrLanguageProfile ?? inferOcrLanguageProfile(ocrLanguages);
+function parseStoredSettings(raw: unknown): StoredSettings {
+  const result = storedSettingsSchema.safeParse(raw);
+  if (result.success === true) {
+    return result.data;
+  }
 
-  return {
+  console.warn("Stored settings failed validation; falling back to defaults.", result.error);
+  return {};
+}
+
+function normalizeSettings(raw: unknown): AppSettings {
+  const parsed = parseStoredSettings(raw);
+  const ocrLanguages = normalizeOcrLanguages(parsed.ocrLanguages);
+  const ocrLanguageProfile = parsed.ocrLanguageProfile ?? inferOcrLanguageProfile(ocrLanguages);
+
+  return appSettingsSchema.parse({
     ...defaultSettings,
-    ...raw,
+    ...parsed,
     ocrLanguages,
     ocrLanguageProfile,
-    ocrPreprocessing: normalizeOcrPreprocessing(raw.ocrPreprocessing)
-  };
+    ocrPreprocessing: normalizeOcrPreprocessing(parsed.ocrPreprocessing)
+  });
 }
 
 async function persistSettings(plaintext: AppSettings): Promise<void> {

@@ -514,7 +514,7 @@ export function registerFloatingShortcut(): boolean {
   return globalShortcut.register('Alt+J', toggleFloatingWindow);
 }
 
-// MUST unregister on app quit
+// MUST unregister only this feature's owned accelerator on app quit
 app.on('before-quit', () => {
   globalShortcut.unregister('Alt+J');
 });
@@ -531,6 +531,8 @@ export function toggleFloatingWindow(): void {
   }
 }
 ```
+
+Do not use `globalShortcut.unregisterAll()` inside a feature-specific shortcut registrar or settings update path. It clears shortcuts owned by other features in the same Electron process. Track the accelerator a feature registered and release only that accelerator with `globalShortcut.unregister(accelerator)`.
 
 #### 3. Cross-Process Hover Detection
 

@@ -1,8 +1,68 @@
-export type ApiProvider = "openai-compatible";
+import { z } from "zod";
 
-export type OcrLanguageProfile = "zh-en" | "english" | "cjk" | "manual";
+const trimmedStringSchema = z.string().transform((value) => value.trim());
 
-export type UpdateSource = "mirror" | "github";
+export const apiProviderSchema = z.literal("openai-compatible");
+export type ApiProvider = z.infer<typeof apiProviderSchema>;
+
+export const ocrLanguageProfileSchema = z.enum(["zh-en", "english", "cjk", "manual"]);
+export type OcrLanguageProfile = z.infer<typeof ocrLanguageProfileSchema>;
+
+export const updateSourceSchema = z.enum(["mirror", "github"]);
+export type UpdateSource = z.infer<typeof updateSourceSchema>;
+
+const ocrThresholdSettingsSchema = z.object({
+  enabled: z.boolean(),
+  value: z.number().finite().min(0).max(255).optional()
+});
+
+const ocrPreprocessingSettingsShape = {
+  enabled: z.boolean(),
+  upscale: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  grayscale: z.boolean(),
+  contrast: z.number().finite().min(0).max(3),
+  threshold: ocrThresholdSettingsSchema
+};
+
+export const ocrPreprocessingSettingsSchema = z.object(ocrPreprocessingSettingsShape);
+const storedOcrPreprocessingSettingsSchema = z
+  .object({
+    ...ocrPreprocessingSettingsShape,
+    threshold: ocrThresholdSettingsSchema.partial().optional()
+  })
+  .partial();
+export type OcrPreprocessingSettings = z.infer<typeof ocrPreprocessingSettingsSchema>;
+
+const appSettingsShape = {
+  shortcut: trimmedStringSchema,
+  targetLanguage: trimmedStringSchema,
+  /**
+   * Tesseract language packs to load (e.g. "eng", "chi_sim"). Order does not
+   * matter; the OCR worker keys itself by the sorted list so toggling languages
+   * triggers a clean rebuild.
+   */
+  ocrLanguages: z.array(z.string()).transform((items) => items.map((item) => item.trim()).filter(Boolean)),
+  ocrLanguageProfile: ocrLanguageProfileSchema,
+  ocrPreprocessing: ocrPreprocessingSettingsSchema,
+  apiProvider: apiProviderSchema,
+  apiBaseUrl: trimmedStringSchema,
+  apiKey: z.string(),
+  apiProxyUrl: trimmedStringSchema,
+  model: trimmedStringSchema,
+  launchOnStartup: z.boolean()
+};
+
+export const appSettingsSchema = z.object(appSettingsShape).strict();
+export type AppSettings = z.infer<typeof appSettingsSchema>;
+
+export const settingsPatchSchema = appSettingsSchema.partial().strict();
+export const storedSettingsSchema = z
+  .object({
+    ...appSettingsShape,
+    ocrPreprocessing: storedOcrPreprocessingSettingsSchema
+  })
+  .partial();
+export type StoredSettings = z.infer<typeof storedSettingsSchema>;
 
 export type UpdateStatus =
   | "idle"
@@ -40,25 +100,6 @@ export type HistoryStatus =
   | "low_confidence"
   | "success"
   | "error";
-
-export interface AppSettings {
-  shortcut: string;
-  targetLanguage: string;
-  /**
-   * Tesseract language packs to load (e.g. "eng", "chi_sim"). Order does not
-   * matter; the OCR worker keys itself by the sorted list so toggling languages
-   * triggers a clean rebuild.
-   */
-  ocrLanguages: string[];
-  ocrLanguageProfile: OcrLanguageProfile;
-  ocrPreprocessing: OcrPreprocessingSettings;
-  apiProvider: ApiProvider;
-  apiBaseUrl: string;
-  apiKey: string;
-  apiProxyUrl: string;
-  model: string;
-  launchOnStartup: boolean;
-}
 
 export type ServiceErrorCode =
   | "missing_api_key"
@@ -134,17 +175,6 @@ export interface ScreenRect {
   y: number;
   width: number;
   height: number;
-}
-
-export interface OcrPreprocessingSettings {
-  enabled: boolean;
-  upscale: 1 | 2 | 3;
-  grayscale: boolean;
-  contrast: number;
-  threshold: {
-    enabled: boolean;
-    value?: number;
-  };
 }
 
 export interface ResultWindowMovePayload {

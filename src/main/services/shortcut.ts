@@ -5,8 +5,8 @@ const modifierOnlyKeys = new Set(["Alt", "Shift", "Control", "CommandOrControl",
 
 export interface ShortcutRegistrar {
   register: (settings: AppSettings) => boolean;
-  registerAccelerator: (shortcut: string) => boolean;
-  unregisterAll: () => void;
+  replace: (shortcut: string, fallbackSettings: AppSettings) => boolean;
+  unregister: () => void;
 }
 
 export function isLikelyAccelerator(value: string): boolean {
@@ -24,20 +24,53 @@ export function isLikelyAccelerator(value: string): boolean {
 }
 
 export function createShortcutRegistrar(options: { onCapture: () => void }): ShortcutRegistrar {
+  let registeredShortcut: string | null = null;
+
   function register(settings: AppSettings): boolean {
-    globalShortcut.unregisterAll();
-    return registerAccelerator(settings.shortcut);
+    return replaceOwnedShortcut(settings.shortcut, settings.shortcut);
   }
 
   function registerAccelerator(shortcut: string): boolean {
-    return globalShortcut.register(shortcut, options.onCapture);
+    const registered = globalShortcut.register(shortcut, options.onCapture);
+    if (registered) {
+      registeredShortcut = shortcut;
+    }
+    return registered;
+  }
+
+  function unregister(): void {
+    if (registeredShortcut === null) {
+      return;
+    }
+
+    globalShortcut.unregister(registeredShortcut);
+    registeredShortcut = null;
+  }
+
+  function replaceOwnedShortcut(shortcut: string, fallbackShortcut: string): boolean {
+    if (registeredShortcut === shortcut) {
+      return true;
+    }
+
+    unregister();
+    const registered = registerAccelerator(shortcut);
+    if (registered) {
+      return true;
+    }
+
+    if (fallbackShortcut !== shortcut) {
+      registerAccelerator(fallbackShortcut);
+    }
+    return false;
+  }
+
+  function replace(shortcut: string, fallbackSettings: AppSettings): boolean {
+    return replaceOwnedShortcut(shortcut, fallbackSettings.shortcut);
   }
 
   return {
     register,
-    registerAccelerator,
-    unregisterAll: () => {
-      globalShortcut.unregisterAll();
-    }
+    replace,
+    unregister
   };
 }

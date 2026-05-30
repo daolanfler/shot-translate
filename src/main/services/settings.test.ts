@@ -61,6 +61,33 @@ describe("settings service OCR language profiles", () => {
     expect(current.ocrLanguages).toEqual(["eng", "fra"]);
   });
 
+  it("normalizes schema-validated stored settings while ignoring unknown fields", async () => {
+    persisted["settings.json"] = {
+      model: " custom-model ",
+      extra: "legacy-field",
+      ocrPreprocessing: {
+        threshold: {
+          enabled: true,
+          value: 120
+        }
+      }
+    };
+
+    const settings = await import("./settings");
+    const current = settings.getSettings();
+
+    expect(current.model).toBe("custom-model");
+    expect(current).not.toHaveProperty("extra");
+    expect(current.ocrPreprocessing).toEqual({
+      ...settings.defaultSettings.ocrPreprocessing,
+      threshold: {
+        ...settings.defaultSettings.ocrPreprocessing.threshold,
+        enabled: true,
+        value: 120
+      }
+    });
+  });
+
   it("persists OCR profile and language updates", async () => {
     const settings = await import("./settings");
 

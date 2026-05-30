@@ -6,6 +6,7 @@ import type {
   ScreenRect,
   UpdateSource
 } from "../shared/types";
+import { settingsPatchSchema } from "../shared/types";
 
 const trimmedStringSchema = z.string().transform((value) => value.trim());
 const finiteNumberSchema = (message: string): z.ZodNumber => z.number({ error: message }).finite(message);
@@ -25,39 +26,6 @@ const screenRectSchema: z.ZodType<ScreenRect> = z
       });
     }
   });
-
-const ocrPreprocessingSchema = z.object({
-  enabled: z.boolean(),
-  upscale: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  grayscale: z.boolean(),
-  contrast: finiteNumberSchema("ocrPreprocessing.contrast must be between 0 and 3.").min(0).max(3),
-  threshold: z.object({
-    enabled: z.boolean(),
-    value: finiteNumberSchema("ocrPreprocessing.threshold.value must be between 0 and 255.")
-      .min(0)
-      .max(255)
-      .optional()
-  })
-});
-
-const settingsPatchSchema = z
-  .object({
-    shortcut: trimmedStringSchema.optional(),
-    targetLanguage: trimmedStringSchema.optional(),
-    ocrLanguages: z
-      .array(z.string())
-      .transform((items) => items.map((item) => item.trim()).filter(Boolean))
-      .optional(),
-    ocrLanguageProfile: z.enum(["zh-en", "english", "cjk", "manual"]).optional(),
-    ocrPreprocessing: ocrPreprocessingSchema.optional(),
-    apiProvider: z.literal("openai-compatible").optional(),
-    apiBaseUrl: trimmedStringSchema.optional(),
-    apiKey: z.string().optional(),
-    apiProxyUrl: trimmedStringSchema.optional(),
-    model: trimmedStringSchema.optional(),
-    launchOnStartup: z.boolean().optional()
-  })
-  .strict();
 
 const historyIdSchema = trimmedStringSchema.refine((value) => value.length > 0, {
   message: "history id is required."

@@ -8,58 +8,64 @@ export interface SettingsUpdateResult {
   message: string;
 }
 
+const SETTINGS_SAVED_MESSAGE = "Settings saved.";
+const INVALID_SHORTCUT_MESSAGE = "Shortcut is invalid. Use a key plus optional modifiers, for example Alt+S.";
+const SHORTCUT_REGISTRATION_FAILED_MESSAGE = "Shortcut could not be registered. It may already be in use.";
+
+function createSuccessResult(settings: AppSettings): SettingsUpdateResult {
+  return {
+    settings,
+    shortcutRegistered: true,
+    message: SETTINGS_SAVED_MESSAGE
+  };
+}
+
+function createShortcutFailureResult(settings: AppSettings, message: string): SettingsUpdateResult {
+  return {
+    settings,
+    shortcutRegistered: false,
+    message
+  };
+}
+
 export function createSettingsUpdateManager(options: {
   isE2e: boolean;
   shortcutRegistrar: ShortcutRegistrar;
 }): {
   updateSettingsSafely: (patch: Partial<AppSettings>) => Promise<SettingsUpdateResult>;
 } {
+  async function saveSettings(patch: Partial<AppSettings>): Promise<SettingsUpdateResult> {
+    const settings = await updateSettings(patch);
+    return createSuccessResult(settings);
+  }
+
   async function updateSettingsSafely(patch: Partial<AppSettings>): Promise<SettingsUpdateResult> {
     const current = getSettings();
 
-    if (typeof patch.shortcut === "string" && patch.shortcut !== current.shortcut) {
-      const shortcut = patch.shortcut.trim();
-
-      if (!isLikelyAccelerator(shortcut)) {
-        return {
-          settings: current,
-          shortcutRegistered: false,
-          message: "Shortcut is invalid. Use a key plus optional modifiers, for example Alt+S."
-        };
-      }
-
-      options.shortcutRegistrar.unregisterAll();
-      const registered = options.shortcutRegistrar.registerAccelerator(shortcut);
-
-      if (!registered) {
-        options.shortcutRegistrar.register(current);
-        return {
-          settings: current,
-          shortcutRegistered: false,
-          message: "Shortcut could not be registered. It may already be in use."
-        };
-      }
-
-      const settings = await updateSettings({
-        ...patch,
-        shortcut
-      });
-      return {
-        settings,
-        shortcutRegistered: true,
-        message: "Settings saved."
-      };
+    if (typeof patch.shortcut !== "string") {
+      return saveSettings(patch);
     }
 
-    const settings = await updateSettings(patch);
-    if (!options.isE2e) {
-      options.shortcutRegistrar.register(settings);
-    }
-    return {
-      settings,
-      shortcutRegistered: true,
-      message: "Settings saved."
+    const shortcut = patch.shortcut.trim();
+    const normalizedPatch = {
+      ...patch,
+      shortcut
     };
+
+    if (shortcut === current.shortcut) {
+      return saveSettings(normalizedPatch);
+    }
+
+    if (!isLikelyAccelerator(shortcut)) {
+      return createShortcutFailureResult(current, INVALID_SHORTCUT_MESSAGE);
+    }
+
+    const registered = options.shortcutRegistrar.replace(shortcut, current);
+    if (!registered) {
+      return createShortcutFailureResult(current, SHORTCUT_REGISTRATION_FAILED_MESSAGE);
+    }
+
+    return saveSettings(normalizedPatch);
   }
 
   return {

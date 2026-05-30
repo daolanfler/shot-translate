@@ -475,5 +475,5 @@ app.on("before-quit", (event) => {
 });
 
 app.on("will-quit", () => {
-  shortcutRegistrar.unregisterAll();
+  shortcutRegistrar.unregister();
 });

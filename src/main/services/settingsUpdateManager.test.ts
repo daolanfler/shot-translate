@@ -38,8 +38,8 @@ const baseSettings: AppSettings = {
 function createShortcutRegistrar(overrides: Partial<ShortcutRegistrar> = {}): ShortcutRegistrar {
   return {
     register: vi.fn(() => true),
-    registerAccelerator: vi.fn(() => true),
-    unregisterAll: vi.fn(),
+    replace: vi.fn(() => true),
+    unregister: vi.fn(),
     ...overrides
   };
 }
@@ -54,14 +54,27 @@ describe("createSettingsUpdateManager", () => {
     }));
   });
 
-  it("persists non-shortcut settings and refreshes shortcut registration outside e2e mode", async () => {
+  it("persists non-shortcut settings without touching shortcut registration", async () => {
     const shortcutRegistrar = createShortcutRegistrar();
     const manager = createSettingsUpdateManager({ isE2e: false, shortcutRegistrar });
 
     const result = await manager.updateSettingsSafely({ model: "gpt-4.1" });
 
     expect(updateSettings).toHaveBeenCalledWith({ model: "gpt-4.1" });
-    expect(shortcutRegistrar.register).toHaveBeenCalledWith(result.settings);
+    expect(shortcutRegistrar.register).not.toHaveBeenCalled();
+    expect(shortcutRegistrar.replace).not.toHaveBeenCalled();
+    expect(result.shortcutRegistered).toBe(true);
+  });
+
+  it("persists unchanged shortcut settings without replacing the registered shortcut", async () => {
+    const shortcutRegistrar = createShortcutRegistrar();
+    const manager = createSettingsUpdateManager({ isE2e: false, shortcutRegistrar });
+
+    const result = await manager.updateSettingsSafely({ shortcut: " Alt+S " });
+
+    expect(updateSettings).toHaveBeenCalledWith({ shortcut: "Alt+S" });
+    expect(shortcutRegistrar.register).not.toHaveBeenCalled();
+    expect(shortcutRegistrar.replace).not.toHaveBeenCalled();
     expect(result.shortcutRegistered).toBe(true);
   });
 
@@ -72,21 +85,19 @@ describe("createSettingsUpdateManager", () => {
     const result = await manager.updateSettingsSafely({ shortcut: "Alt+Shift" });
 
     expect(updateSettings).not.toHaveBeenCalled();
-    expect(shortcutRegistrar.unregisterAll).not.toHaveBeenCalled();
+    expect(shortcutRegistrar.replace).not.toHaveBeenCalled();
     expect(result.shortcutRegistered).toBe(false);
   });
 
   it("restores the previous shortcut registration when a new shortcut cannot be registered", async () => {
     const shortcutRegistrar = createShortcutRegistrar({
-      registerAccelerator: vi.fn(() => false)
+      replace: vi.fn(() => false)
     });
     const manager = createSettingsUpdateManager({ isE2e: false, shortcutRegistrar });
 
     const result = await manager.updateSettingsSafely({ shortcut: "Alt+T" });
 
-    expect(shortcutRegistrar.unregisterAll).toHaveBeenCalledTimes(1);
-    expect(shortcutRegistrar.registerAccelerator).toHaveBeenCalledWith("Alt+T");
-    expect(shortcutRegistrar.register).toHaveBeenCalledWith(baseSettings);
+    expect(shortcutRegistrar.replace).toHaveBeenCalledWith("Alt+T", baseSettings);
     expect(updateSettings).not.toHaveBeenCalled();
     expect(result.shortcutRegistered).toBe(false);
   });
