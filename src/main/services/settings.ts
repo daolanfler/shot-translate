@@ -1,6 +1,7 @@
 import { app, safeStorage } from "electron";
 import {
   appSettingsSchema,
+  storedSettingsFieldSchemas,
   storedSettingsSchema,
   type AppSettings,
   type OcrLanguageProfile,
@@ -120,13 +121,28 @@ function normalizeOcrPreprocessing(raw: OcrPreprocessingSettingsInput | undefine
 }
 
 function parseStoredSettings(raw: unknown): StoredSettings {
-  const result = storedSettingsSchema.safeParse(raw);
-  if (result.success === true) {
-    return result.data;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    console.warn("Stored settings must be an object; falling back to defaults.");
+    return {};
   }
 
-  console.warn("Stored settings failed validation; falling back to defaults.", result.error);
-  return {};
+  const rawRecord = raw as Record<string, unknown>;
+  const parsed: Partial<Record<keyof StoredSettings, unknown>> = {};
+  for (const key of Object.keys(storedSettingsFieldSchemas) as Array<keyof StoredSettings>) {
+    if (!Object.prototype.hasOwnProperty.call(rawRecord, key)) {
+      continue;
+    }
+
+    const result = storedSettingsFieldSchemas[key].safeParse(rawRecord[key]);
+    if (result.success === true) {
+      parsed[key] = result.data;
+      continue;
+    }
+
+    console.warn(`Ignoring invalid stored setting "${key}".`, result.error);
+  }
+
+  return storedSettingsSchema.parse(parsed);
 }
 
 function normalizeSettings(raw: unknown): AppSettings {

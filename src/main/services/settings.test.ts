@@ -88,6 +88,31 @@ describe("settings service OCR language profiles", () => {
     });
   });
 
+  it("preserves valid stored settings when another field is invalid", async () => {
+    persisted["settings.json"] = {
+      shortcut: " Alt+T ",
+      model: "custom-model",
+      launchOnStartup: true,
+      ocrPreprocessing: {
+        enabled: false,
+        upscale: 1,
+        grayscale: false,
+        contrast: 99,
+        threshold: {
+          enabled: false
+        }
+      }
+    };
+
+    const settings = await import("./settings");
+    const current = settings.getSettings();
+
+    expect(current.shortcut).toBe("Alt+T");
+    expect(current.model).toBe("custom-model");
+    expect(current.launchOnStartup).toBe(true);
+    expect(current.ocrPreprocessing).toEqual(settings.defaultSettings.ocrPreprocessing);
+  });
+
   it("persists OCR profile and language updates", async () => {
     const settings = await import("./settings");
 

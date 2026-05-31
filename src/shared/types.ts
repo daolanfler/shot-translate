@@ -56,12 +56,11 @@ export const appSettingsSchema = z.object(appSettingsShape).strict();
 export type AppSettings = z.infer<typeof appSettingsSchema>;
 
 export const settingsPatchSchema = appSettingsSchema.partial().strict();
-export const storedSettingsSchema = z
-  .object({
-    ...appSettingsShape,
-    ocrPreprocessing: storedOcrPreprocessingSettingsSchema
-  })
-  .partial();
+export const storedSettingsFieldSchemas = {
+  ...appSettingsShape,
+  ocrPreprocessing: storedOcrPreprocessingSettingsSchema
+};
+export const storedSettingsSchema = z.object(storedSettingsFieldSchemas).partial();
 export type StoredSettings = z.infer<typeof storedSettingsSchema>;
 
 export type UpdateStatus =
