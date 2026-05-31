@@ -1,243 +1,108 @@
+import { z } from "zod";
 import type {
   AppSettings,
   CaptureSubmitPayload,
-  OcrLanguageProfile,
-  OcrPreprocessingSettings,
   ResultWindowMovePayload,
   ScreenRect,
   UpdateSource
 } from "../shared/types";
+import { settingsPatchSchema } from "../shared/types";
 
-const ocrLanguageProfiles = new Set<OcrLanguageProfile>(["zh-en", "english", "cjk", "manual"]);
-const updateSources = new Set<UpdateSource>(["mirror", "github"]);
+const trimmedStringSchema = z.string().transform((value) => value.trim());
+const finiteNumberSchema = (message: string): z.ZodNumber => z.number({ error: message }).finite(message);
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function requirePlainObject(value: unknown, name: string): Record<string, unknown> {
-  if (!isPlainObject(value)) {
-    throw new Error(`${name} must be an object.`);
-  }
-
-  return value;
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function requireString(value: unknown, name: string): string {
-  if (typeof value !== "string") {
-    throw new Error(`${name} must be a string.`);
-  }
-
-  return value;
-}
-
-function optionalString(value: unknown, name: string): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  return requireString(value, name);
-}
-
-function validateScreenRect(value: unknown, name: string): ScreenRect {
-  const raw = requirePlainObject(value, name);
-  const { x, y, width, height } = raw;
-
-  if (
-    !isFiniteNumber(x) ||
-    !isFiniteNumber(y) ||
-    !isFiniteNumber(width) ||
-    !isFiniteNumber(height) ||
-    width <= 0 ||
-    height <= 0
-  ) {
-    throw new Error(`${name} must contain finite x, y, width, and height values.`);
-  }
-
-  return { x, y, width, height };
-}
-
-function validateOcrPreprocessing(value: unknown): OcrPreprocessingSettings {
-  const raw = requirePlainObject(value, "ocrPreprocessing");
-  const threshold = requirePlainObject(raw.threshold, "ocrPreprocessing.threshold");
-  const upscale = raw.upscale;
-  const contrast = raw.contrast;
-  const thresholdValue = threshold.value;
-
-  if (typeof raw.enabled !== "boolean") {
-    throw new Error("ocrPreprocessing.enabled must be a boolean.");
-  }
-
-  if (upscale !== 1 && upscale !== 2 && upscale !== 3) {
-    throw new Error("ocrPreprocessing.upscale must be 1, 2, or 3.");
-  }
-
-  if (typeof raw.grayscale !== "boolean") {
-    throw new Error("ocrPreprocessing.grayscale must be a boolean.");
-  }
-
-  if (!isFiniteNumber(contrast) || contrast < 0 || contrast > 3) {
-    throw new Error("ocrPreprocessing.contrast must be between 0 and 3.");
-  }
-
-  if (typeof threshold.enabled !== "boolean") {
-    throw new Error("ocrPreprocessing.threshold.enabled must be a boolean.");
-  }
-
-  if (thresholdValue !== undefined && (!isFiniteNumber(thresholdValue) || thresholdValue < 0 || thresholdValue > 255)) {
-    throw new Error("ocrPreprocessing.threshold.value must be between 0 and 255.");
-  }
-
-  return {
-    enabled: raw.enabled,
-    upscale,
-    grayscale: raw.grayscale,
-    contrast,
-    threshold: {
-      enabled: threshold.enabled,
-      ...(thresholdValue === undefined ? {} : { value: thresholdValue })
+const screenRectSchema: z.ZodType<ScreenRect> = z
+  .object({
+    x: finiteNumberSchema("selectionRect must contain finite x, y, width, and height values."),
+    y: finiteNumberSchema("selectionRect must contain finite x, y, width, and height values."),
+    width: finiteNumberSchema("selectionRect must contain finite x, y, width, and height values."),
+    height: finiteNumberSchema("selectionRect must contain finite x, y, width, and height values.")
+  })
+  .superRefine((value, context) => {
+    if (value.width <= 0 || value.height <= 0) {
+      context.addIssue({
+        code: "custom",
+        message: "selectionRect must contain finite x, y, width, and height values."
+      });
     }
-  };
+  });
+
+const historyIdSchema = trimmedStringSchema.refine((value) => value.length > 0, {
+  message: "history id is required."
+});
+
+const retrySourceTextSchema = z.string().optional();
+
+const captureSubmitPayloadSchema: z.ZodType<CaptureSubmitPayload> = z.object({
+  displayId: z.number({ error: "displayId must be an integer." }).int("displayId must be an integer."),
+  selectionRect: screenRectSchema
+});
+
+const resultWindowMovePayloadSchema: z.ZodType<ResultWindowMovePayload> = z.object({
+  deltaX: finiteNumberSchema("result window movement must contain finite deltaX and deltaY values."),
+  deltaY: finiteNumberSchema("result window movement must contain finite deltaX and deltaY values.")
+});
+
+const updateSourceSchema = z.enum(["mirror", "github"], {
+  error: "Update source is invalid."
+});
+
+const clipboardTextSchema = z.string();
+
+const rendererErrorSchema = z.object({
+  message: trimmedStringSchema.refine((value) => value.length > 0, {
+    message: "renderer error message is required."
+  }),
+  stack: z.string().optional()
+});
+
+function formatValidationIssue(issue: z.core.$ZodIssue): string {
+  if (issue.code === "unrecognized_keys") {
+    return `Unsupported settings field: ${issue.keys[0]}.`;
+  }
+
+  return issue.message;
 }
+
+function parseWithSchema<T>(schema: z.ZodType<T>, value: unknown): T {
+  const result = schema.safeParse(value);
+  if (result.success === true) {
+    return result.data;
+  }
+
+  throw new Error(formatValidationIssue(result.error.issues[0]));
+}
+
+export type SettingsPatchInput = z.infer<typeof settingsPatchSchema>;
 
 export function validateSettingsPatch(value: unknown): Partial<AppSettings> {
-  const raw = requirePlainObject(value, "settings patch");
-  const patch: Partial<AppSettings> = {};
-
-  for (const key of Object.keys(raw)) {
-    if (
-      ![
-        "shortcut",
-        "targetLanguage",
-        "ocrLanguages",
-        "ocrLanguageProfile",
-        "ocrPreprocessing",
-        "apiProvider",
-        "apiBaseUrl",
-        "apiKey",
-        "apiProxyUrl",
-        "model",
-        "launchOnStartup"
-      ].includes(key)
-    ) {
-      throw new Error(`Unsupported settings field: ${key}.`);
-    }
-  }
-
-  if (raw.shortcut !== undefined) {
-    patch.shortcut = requireString(raw.shortcut, "shortcut").trim();
-  }
-  if (raw.targetLanguage !== undefined) {
-    patch.targetLanguage = requireString(raw.targetLanguage, "targetLanguage").trim();
-  }
-  if (raw.ocrLanguages !== undefined) {
-    if (!Array.isArray(raw.ocrLanguages) || raw.ocrLanguages.some((item) => typeof item !== "string")) {
-      throw new Error("ocrLanguages must be an array of strings.");
-    }
-    patch.ocrLanguages = raw.ocrLanguages.map((item) => item.trim()).filter(Boolean);
-  }
-  if (raw.ocrLanguageProfile !== undefined) {
-    if (!ocrLanguageProfiles.has(raw.ocrLanguageProfile as OcrLanguageProfile)) {
-      throw new Error("ocrLanguageProfile is invalid.");
-    }
-    patch.ocrLanguageProfile = raw.ocrLanguageProfile as OcrLanguageProfile;
-  }
-  if (raw.ocrPreprocessing !== undefined) {
-    patch.ocrPreprocessing = validateOcrPreprocessing(raw.ocrPreprocessing);
-  }
-  if (raw.apiProvider !== undefined) {
-    if (raw.apiProvider !== "openai-compatible") {
-      throw new Error("apiProvider is invalid.");
-    }
-    patch.apiProvider = raw.apiProvider;
-  }
-  if (raw.apiBaseUrl !== undefined) {
-    patch.apiBaseUrl = requireString(raw.apiBaseUrl, "apiBaseUrl").trim();
-  }
-  if (raw.apiKey !== undefined) {
-    patch.apiKey = requireString(raw.apiKey, "apiKey");
-  }
-  if (raw.apiProxyUrl !== undefined) {
-    patch.apiProxyUrl = requireString(raw.apiProxyUrl, "apiProxyUrl").trim();
-  }
-  if (raw.model !== undefined) {
-    patch.model = requireString(raw.model, "model").trim();
-  }
-  if (raw.launchOnStartup !== undefined) {
-    if (typeof raw.launchOnStartup !== "boolean") {
-      throw new Error("launchOnStartup must be a boolean.");
-    }
-    patch.launchOnStartup = raw.launchOnStartup;
-  }
-
-  return patch;
+  return parseWithSchema(settingsPatchSchema, value);
 }
 
 export function validateHistoryId(value: unknown): string {
-  const id = requireString(value, "history id").trim();
-  if (!id) {
-    throw new Error("history id is required.");
-  }
-
-  return id;
+  return parseWithSchema(historyIdSchema, value);
 }
 
 export function validateRetrySourceText(value: unknown): string | undefined {
-  return optionalString(value, "sourceText");
+  return parseWithSchema(retrySourceTextSchema, value);
 }
 
 export function validateCaptureSubmitPayload(value: unknown): CaptureSubmitPayload {
-  const raw = requirePlainObject(value, "capture payload");
-  const displayId = raw.displayId;
-
-  if (typeof displayId !== "number" || !Number.isInteger(displayId)) {
-    throw new Error("displayId must be an integer.");
-  }
-
-  return {
-    displayId,
-    selectionRect: validateScreenRect(raw.selectionRect, "selectionRect")
-  };
+  return parseWithSchema(captureSubmitPayloadSchema, value);
 }
 
 export function validateResultWindowMovePayload(value: unknown): ResultWindowMovePayload {
-  const raw = requirePlainObject(value, "result window movement");
-  if (!isFiniteNumber(raw.deltaX) || !isFiniteNumber(raw.deltaY)) {
-    throw new Error("result window movement must contain finite deltaX and deltaY values.");
-  }
-
-  return {
-    deltaX: raw.deltaX,
-    deltaY: raw.deltaY
-  };
+  return parseWithSchema(resultWindowMovePayloadSchema, value);
 }
 
 export function validateUpdateSource(value: unknown): UpdateSource {
-  if (!updateSources.has(value as UpdateSource)) {
-    throw new Error("Update source is invalid.");
-  }
-
-  return value as UpdateSource;
+  return parseWithSchema(updateSourceSchema, value);
 }
 
 export function validateClipboardText(value: unknown): string {
-  return requireString(value, "clipboard text");
+  return parseWithSchema(clipboardTextSchema, value);
 }
 
 export function validateRendererError(value: unknown): { message: string; stack?: string } {
-  const raw = requirePlainObject(value, "renderer error");
-  const message = requireString(raw.message, "renderer error message").trim();
-
-  if (!message) {
-    throw new Error("renderer error message is required.");
-  }
-
-  return {
-    message,
-    stack: optionalString(raw.stack, "renderer error stack")
-  };
+  return parseWithSchema(rendererErrorSchema, value);
 }

@@ -6,18 +6,26 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import "./globals.css";
 
 window.addEventListener("error", (event) => {
-  void window.shotTranslate?.reportRendererError({
-    message: event.message,
-    stack: event.error instanceof Error ? event.error.stack : undefined
-  });
+  void window.shotTranslate
+    ?.reportRendererError({
+      message: event.message,
+      stack: event.error instanceof Error ? event.error.stack : undefined
+    })
+    .catch((error: unknown) => {
+      console.error("Failed to report renderer error", error);
+    });
 });
 
 window.addEventListener("unhandledrejection", (event) => {
   const reason = event.reason;
-  void window.shotTranslate?.reportRendererError({
-    message: reason instanceof Error ? reason.message : String(reason),
-    stack: reason instanceof Error ? reason.stack : undefined
-  });
+  void window.shotTranslate
+    ?.reportRendererError({
+      message: reason instanceof Error ? reason.message : String(reason),
+      stack: reason instanceof Error ? reason.stack : undefined
+    })
+    .catch((error: unknown) => {
+      console.error("Failed to report renderer rejection", error);
+    });
 });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

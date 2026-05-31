@@ -31,6 +31,30 @@ import type { LoginInput, AuthResponse, SessionData } from '../shared/types/auth
 const result: AuthResponse = await window.api.auth.login(data);
 ```
 
+### Handling `invoke` Rejections in Renderer
+
+`ipcMain.handle` errors arrive in the renderer as rejected `ipcRenderer.invoke` promises. Treat the global
+`unhandledrejection` listener as logging fallback only; user-triggered IPC actions need local recovery at the call site.
+
+```tsx
+// Bad - rejection only reaches the global unhandledrejection logger
+onClick={() => window.api.capture.start()}
+
+// Good - handle the action-specific recovery and message where the user acted
+async function startCapture(): Promise<void> {
+  try {
+    await window.api.capture.start();
+  } catch (error) {
+    console.error("Failed to start capture", error);
+    showNotice(formatActionError("Failed to start capture", error), "red");
+  }
+}
+```
+
+Use call-site handling when rejection affects UI state, optimistic updates, loading indicators, capture overlays, clipboard
+actions, retries, or update/download flows. Keep preload return types stable unless the API already has an explicit result
+envelope.
+
 ### Preload API Structure
 
 ```typescript
@@ -490,7 +514,7 @@ export function registerFloatingShortcut(): boolean {
   return globalShortcut.register('Alt+J', toggleFloatingWindow);
 }
 
-// MUST unregister on app quit
+// MUST unregister only this feature's owned accelerator on app quit
 app.on('before-quit', () => {
   globalShortcut.unregister('Alt+J');
 });
@@ -507,6 +531,8 @@ export function toggleFloatingWindow(): void {
   }
 }
 ```
+
+Do not use `globalShortcut.unregisterAll()` inside a feature-specific shortcut registrar or settings update path. It clears shortcuts owned by other features in the same Electron process. Track the accelerator a feature registered and release only that accelerator with `globalShortcut.unregister(accelerator)`.
 
 #### 3. Cross-Process Hover Detection
 

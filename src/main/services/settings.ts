@@ -1,11 +1,19 @@
 import { app, safeStorage } from "electron";
-import type { AppSettings, OcrLanguageProfile, OcrPreprocessingSettings } from "../../shared/types";
+import {
+  appSettingsSchema,
+  storedSettingsFieldSchemas,
+  storedSettingsSchema,
+  type AppSettings,
+  type OcrLanguageProfile,
+  type OcrPreprocessingSettings,
+  type StoredSettings
+} from "../../shared/types";
 import { readJsonFile, writeJsonFile } from "./store";
 
 const SETTINGS_FILE = "settings.json";
 const ENCRYPTED_PREFIX = "enc:v1:";
 
-export const defaultSettings: AppSettings = {
+export const defaultSettings: AppSettings = appSettingsSchema.parse({
   // Alt+S avoids the common Ctrl+Shift+T browser "reopen closed tab" conflict.
   shortcut: "Alt+S",
   targetLanguage: "zh-CN",
@@ -26,12 +34,14 @@ export const defaultSettings: AppSettings = {
   apiProxyUrl: "",
   model: "gpt-4.1-mini",
   launchOnStartup: false
-};
+});
 
 let cachedSettings: AppSettings | null = null;
+let settingsWriteQueue: Promise<void> = Promise.resolve();
 
 export function resetSettingsForTests(): void {
   cachedSettings = null;
+  settingsWriteQueue = Promise.resolve();
 }
 
 function decryptApiKey(stored: string): string {
@@ -93,7 +103,13 @@ function inferOcrLanguageProfile(languages: string[]): OcrLanguageProfile {
   return (match?.[0] as OcrLanguageProfile | undefined) ?? "manual";
 }
 
-function normalizeOcrPreprocessing(raw: Partial<OcrPreprocessingSettings> | undefined): OcrPreprocessingSettings {
+type OcrPreprocessingSettingsInput = Partial<
+  Omit<OcrPreprocessingSettings, "threshold"> & {
+    threshold: Partial<OcrPreprocessingSettings["threshold"]>;
+  }
+>;
+
+function normalizeOcrPreprocessing(raw: OcrPreprocessingSettingsInput | undefined): OcrPreprocessingSettings {
   return {
     ...defaultSettings.ocrPreprocessing,
     ...raw,
@@ -104,17 +120,43 @@ function normalizeOcrPreprocessing(raw: Partial<OcrPreprocessingSettings> | unde
   };
 }
 
-function normalizeSettings(raw: Partial<AppSettings>): AppSettings {
-  const ocrLanguages = normalizeOcrLanguages(raw.ocrLanguages);
-  const ocrLanguageProfile = raw.ocrLanguageProfile ?? inferOcrLanguageProfile(ocrLanguages);
+function parseStoredSettings(raw: unknown): StoredSettings {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    console.warn("Stored settings must be an object; falling back to defaults.");
+    return {};
+  }
 
-  return {
+  const rawRecord = raw as Record<string, unknown>;
+  const parsed: Partial<Record<keyof StoredSettings, unknown>> = {};
+  for (const key of Object.keys(storedSettingsFieldSchemas) as Array<keyof StoredSettings>) {
+    if (!Object.prototype.hasOwnProperty.call(rawRecord, key)) {
+      continue;
+    }
+
+    const result = storedSettingsFieldSchemas[key].safeParse(rawRecord[key]);
+    if (result.success === true) {
+      parsed[key] = result.data;
+      continue;
+    }
+
+    console.warn(`Ignoring invalid stored setting "${key}".`, result.error);
+  }
+
+  return storedSettingsSchema.parse(parsed);
+}
+
+function normalizeSettings(raw: unknown): AppSettings {
+  const parsed = parseStoredSettings(raw);
+  const ocrLanguages = normalizeOcrLanguages(parsed.ocrLanguages);
+  const ocrLanguageProfile = parsed.ocrLanguageProfile ?? inferOcrLanguageProfile(ocrLanguages);
+
+  return appSettingsSchema.parse({
     ...defaultSettings,
-    ...raw,
+    ...parsed,
     ocrLanguages,
     ocrLanguageProfile,
-    ocrPreprocessing: normalizeOcrPreprocessing(raw.ocrPreprocessing)
-  };
+    ocrPreprocessing: normalizeOcrPreprocessing(parsed.ocrPreprocessing)
+  });
 }
 
 async function persistSettings(plaintext: AppSettings): Promise<void> {
@@ -122,6 +164,15 @@ async function persistSettings(plaintext: AppSettings): Promise<void> {
     ...plaintext,
     apiKey: encryptApiKeyForStorage(plaintext.apiKey)
   });
+}
+
+function enqueueSettingsWrite<T>(operation: () => Promise<T>): Promise<T> {
+  const queued = settingsWriteQueue.then(operation, operation);
+  settingsWriteQueue = queued.then(
+    () => undefined,
+    () => undefined
+  );
+  return queued;
 }
 
 export function getSettings(): AppSettings {
@@ -142,7 +193,11 @@ export function getSettings(): AppSettings {
   // sitting on disk. Fire and forget — cached settings are already correct in
   // memory, and a failed write just means we re-migrate next launch.
   if (isLegacyPlaintext) {
-    void persistSettings(cachedSettings).catch((error) => {
+    void enqueueSettingsWrite(async () => {
+      if (cachedSettings) {
+        await persistSettings(cachedSettings);
+      }
+    }).catch((error) => {
       console.error("Failed to migrate legacy plaintext apiKey.", error);
     });
   }
@@ -151,17 +206,21 @@ export function getSettings(): AppSettings {
 }
 
 export async function updateSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
-  cachedSettings = normalizeSettings({
-    ...getSettings(),
-    ...patch
-  });
-
-  if (process.env.SHOT_TRANSLATE_E2E !== "1") {
-    app.setLoginItemSettings({
-      openAtLogin: cachedSettings.launchOnStartup
+  return enqueueSettingsWrite(async () => {
+    const nextSettings = normalizeSettings({
+      ...getSettings(),
+      ...patch
     });
-  }
 
-  await persistSettings(cachedSettings);
-  return cachedSettings;
+    await persistSettings(nextSettings);
+    cachedSettings = nextSettings;
+
+    if (process.env.SHOT_TRANSLATE_E2E !== "1") {
+      app.setLoginItemSettings({
+        openAtLogin: cachedSettings.launchOnStartup
+      });
+    }
+
+    return cachedSettings;
+  });
 }

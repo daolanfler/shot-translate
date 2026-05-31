@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const persisted: Record<string, unknown> = {};
 const loginItemSettings = vi.fn();
+const readJsonFile = vi.fn((name: string, fallback: unknown) => persisted[name] ?? fallback);
+const writeJsonFile = vi.fn(async (name: string, value: unknown) => {
+  persisted[name] = value;
+});
 
 vi.mock("electron", () => ({
   app: {
@@ -13,10 +17,8 @@ vi.mock("electron", () => ({
 }));
 
 vi.mock("./store", () => ({
-  readJsonFile: vi.fn((name: string, fallback: unknown) => persisted[name] ?? fallback),
-  writeJsonFile: vi.fn(async (name: string, value: unknown) => {
-    persisted[name] = value;
-  })
+  readJsonFile,
+  writeJsonFile
 }));
 
 describe("settings service OCR language profiles", () => {
@@ -26,6 +28,11 @@ describe("settings service OCR language profiles", () => {
     }
 
     loginItemSettings.mockReset();
+    readJsonFile.mockClear();
+    writeJsonFile.mockClear();
+    writeJsonFile.mockImplementation(async (name: string, value: unknown) => {
+      persisted[name] = value;
+    });
     const settings = await import("./settings");
     settings.resetSettingsForTests();
   });
@@ -54,6 +61,58 @@ describe("settings service OCR language profiles", () => {
     expect(current.ocrLanguages).toEqual(["eng", "fra"]);
   });
 
+  it("normalizes schema-validated stored settings while ignoring unknown fields", async () => {
+    persisted["settings.json"] = {
+      model: " custom-model ",
+      extra: "legacy-field",
+      ocrPreprocessing: {
+        threshold: {
+          enabled: true,
+          value: 120
+        }
+      }
+    };
+
+    const settings = await import("./settings");
+    const current = settings.getSettings();
+
+    expect(current.model).toBe("custom-model");
+    expect(current).not.toHaveProperty("extra");
+    expect(current.ocrPreprocessing).toEqual({
+      ...settings.defaultSettings.ocrPreprocessing,
+      threshold: {
+        ...settings.defaultSettings.ocrPreprocessing.threshold,
+        enabled: true,
+        value: 120
+      }
+    });
+  });
+
+  it("preserves valid stored settings when another field is invalid", async () => {
+    persisted["settings.json"] = {
+      shortcut: " Alt+T ",
+      model: "custom-model",
+      launchOnStartup: true,
+      ocrPreprocessing: {
+        enabled: false,
+        upscale: 1,
+        grayscale: false,
+        contrast: 99,
+        threshold: {
+          enabled: false
+        }
+      }
+    };
+
+    const settings = await import("./settings");
+    const current = settings.getSettings();
+
+    expect(current.shortcut).toBe("Alt+T");
+    expect(current.model).toBe("custom-model");
+    expect(current.launchOnStartup).toBe(true);
+    expect(current.ocrPreprocessing).toEqual(settings.defaultSettings.ocrPreprocessing);
+  });
+
   it("persists OCR profile and language updates", async () => {
     const settings = await import("./settings");
 
@@ -67,6 +126,51 @@ describe("settings service OCR language profiles", () => {
     expect(persisted["settings.json"]).toMatchObject({
       ocrLanguageProfile: "english",
       ocrLanguages: ["eng"]
+    });
+  });
+
+  it("serializes concurrent updates so later patches persist on top of earlier patches", async () => {
+    const pendingWrites: Array<{ name: string; value: unknown; resolve: () => void }> = [];
+    writeJsonFile.mockImplementation(
+      (name: string, value: unknown) =>
+        new Promise<void>((resolve) => {
+          pendingWrites.push({
+            name,
+            value,
+            resolve: () => {
+              persisted[name] = value;
+              resolve();
+            }
+          });
+        })
+    );
+    const settings = await import("./settings");
+
+    const first = settings.updateSettings({ model: "first-model" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(pendingWrites).toHaveLength(1);
+
+    const second = settings.updateSettings({ targetLanguage: "en" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(pendingWrites).toHaveLength(1);
+
+    pendingWrites[0].resolve();
+    await expect(first).resolves.toMatchObject({ model: "first-model", targetLanguage: "zh-CN" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(pendingWrites).toHaveLength(2);
+    expect(pendingWrites[1].value).toMatchObject({
+      model: "first-model",
+      targetLanguage: "en"
+    });
+
+    pendingWrites[1].resolve();
+    await expect(second).resolves.toMatchObject({ model: "first-model", targetLanguage: "en" });
+    expect(persisted["settings.json"]).toMatchObject({
+      model: "first-model",
+      targetLanguage: "en"
     });
   });
 });

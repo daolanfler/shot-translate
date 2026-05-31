@@ -1,8 +1,13 @@
 import { globalShortcut } from "electron";
 import type { AppSettings } from "../../shared/types";
-import { getSettings, updateSettings } from "./settings";
 
 const modifierOnlyKeys = new Set(["Alt", "Shift", "Control", "CommandOrControl", "CmdOrCtrl", "Command", "Super"]);
+
+export interface ShortcutRegistrar {
+  register: (settings: AppSettings) => boolean;
+  replace: (shortcut: string, fallbackSettings: AppSettings) => boolean;
+  unregister: () => void;
+}
 
 export function isLikelyAccelerator(value: string): boolean {
   const parts = value
@@ -18,69 +23,54 @@ export function isLikelyAccelerator(value: string): boolean {
   return Boolean(key && !modifierOnlyKeys.has(key));
 }
 
-export function createShortcutManager(options: { isE2e: boolean; onCapture: () => void }) {
-  function registerShortcut(settings: AppSettings): boolean {
-    globalShortcut.unregisterAll();
-    return globalShortcut.register(settings.shortcut, options.onCapture);
+export function createShortcutRegistrar(options: { onCapture: () => void }): ShortcutRegistrar {
+  let registeredShortcut: string | null = null;
+
+  function register(settings: AppSettings): boolean {
+    return replaceOwnedShortcut(settings.shortcut, settings.shortcut);
   }
 
-  async function updateSettingsSafely(patch: Partial<AppSettings>): Promise<{
-    settings: AppSettings;
-    shortcutRegistered: boolean;
-    message: string;
-  }> {
-    const current = getSettings();
+  function registerAccelerator(shortcut: string): boolean {
+    const registered = globalShortcut.register(shortcut, options.onCapture);
+    if (registered) {
+      registeredShortcut = shortcut;
+    }
+    return registered;
+  }
 
-    if (typeof patch.shortcut === "string" && patch.shortcut !== current.shortcut) {
-      const shortcut = patch.shortcut.trim();
-
-      if (!isLikelyAccelerator(shortcut)) {
-        return {
-          settings: current,
-          shortcutRegistered: false,
-          message: "Shortcut is invalid. Use a key plus optional modifiers, for example Alt+S."
-        };
-      }
-
-      globalShortcut.unregisterAll();
-      const registered = globalShortcut.register(shortcut, options.onCapture);
-
-      if (!registered) {
-        registerShortcut(current);
-        return {
-          settings: current,
-          shortcutRegistered: false,
-          message: "Shortcut could not be registered. It may already be in use."
-        };
-      }
-
-      const settings = await updateSettings({
-        ...patch,
-        shortcut
-      });
-      return {
-        settings,
-        shortcutRegistered: true,
-        message: "Settings saved."
-      };
+  function unregister(): void {
+    if (registeredShortcut === null) {
+      return;
     }
 
-    const settings = await updateSettings(patch);
-    if (!options.isE2e) {
-      registerShortcut(settings);
+    globalShortcut.unregister(registeredShortcut);
+    registeredShortcut = null;
+  }
+
+  function replaceOwnedShortcut(shortcut: string, fallbackShortcut: string): boolean {
+    if (registeredShortcut === shortcut) {
+      return true;
     }
-    return {
-      settings,
-      shortcutRegistered: true,
-      message: "Settings saved."
-    };
+
+    unregister();
+    const registered = registerAccelerator(shortcut);
+    if (registered) {
+      return true;
+    }
+
+    if (fallbackShortcut !== shortcut) {
+      registerAccelerator(fallbackShortcut);
+    }
+    return false;
+  }
+
+  function replace(shortcut: string, fallbackSettings: AppSettings): boolean {
+    return replaceOwnedShortcut(shortcut, fallbackSettings.shortcut);
   }
 
   return {
-    registerShortcut,
-    updateSettingsSafely,
-    unregisterAll: () => {
-      globalShortcut.unregisterAll();
-    }
+    register,
+    replace,
+    unregister
   };
 }

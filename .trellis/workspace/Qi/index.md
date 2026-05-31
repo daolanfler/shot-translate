@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
-- **Last Active**: 2026-05-28
+- **Total Sessions**: 14
+- **Last Active**: 2026-05-29
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~305 | Active |
+| `journal-1.md` | ~470 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,11 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 14 | 2026-05-29 | Fix concurrent settings persistence writes | `5d3b38f` | `codex/zod-ipc-validation-and-trellis-assets` |
+| 13 | 2026-05-29 | Clarify settings update manager naming | `1989f87` | `codex/zod-ipc-validation-and-trellis-assets` |
+| 12 | 2026-05-29 | Handle renderer IPC invocation errors | `297ec8c` | `codex/zod-ipc-validation-and-trellis-assets` |
+| 11 | 2026-05-29 | Document ready PR default | `883efa1` | `codex/zod-ipc-validation-and-trellis-assets` |
+| 10 | 2026-05-28 | Zod IPC validation and Codex Trellis assets | `c405309`, `3884bca` | `-` |
 | 9 | 2026-05-28 | Add Zod IPC validation task | `ae6df17` | `main` |
 | 8 | 2026-05-28 | Create optimization planning tasks | `e3f417f` | `main` |
 | 7 | 2026-05-28 | Improve result window interaction | `323a7ef` | `main` |

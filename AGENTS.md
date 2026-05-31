@@ -36,6 +36,8 @@ Co-authored-by: Codex <codex@openai.com>
 
 When Codex posts a GitHub PR review or PR comment, prefix the comment body with `[Codex Review]`.
 
+When Codex creates a GitHub pull request, create it as ready for review by default. Use a draft PR only when the user explicitly asks for a draft.
+
 ## Architecture
 
 ### Process Boundary

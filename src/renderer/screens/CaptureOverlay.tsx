@@ -37,6 +37,14 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
   const [pendingRect, setPendingRect] = useState<Rect | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  async function cancelCaptureSafely(): Promise<void> {
+    try {
+      await window.shotTranslate.cancelCapture();
+    } catch (error) {
+      console.error("cancelCapture failed", error);
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
 
@@ -50,7 +58,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         if (!nextSource.dataUrl) {
           // Source returned empty — overlay is unusable, bail silently.
           console.error("Capture source returned empty dataUrl");
-          void window.shotTranslate.cancelCapture();
+          void cancelCaptureSafely();
           return;
         }
 
@@ -66,12 +74,12 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         // showing any UI inside the overlay would clash with the clean
         // selection experience.
         console.error("getCaptureSource failed", error);
-        void window.shotTranslate.cancelCapture();
+        void cancelCaptureSafely();
       });
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        void window.shotTranslate.cancelCapture();
+        void cancelCaptureSafely();
       }
     };
 
@@ -88,21 +96,26 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
     }
 
     if (rect.width < 12 || rect.height < 12) {
-      await window.shotTranslate.cancelCapture();
+      await cancelCaptureSafely();
       return;
     }
 
-    await window.shotTranslate.submitCapture({
-      displayId,
-      // Translate rect (CSS px, capture-window relative) into screen-space
-      // (CSS px, display-relative) so main can anchor the result window.
-      selectionRect: {
-        x: window.screenX + rect.left,
-        y: window.screenY + rect.top,
-        width: rect.width,
-        height: rect.height
-      }
-    });
+    try {
+      await window.shotTranslate.submitCapture({
+        displayId,
+        // Translate rect (CSS px, capture-window relative) into screen-space
+        // (CSS px, display-relative) so main can anchor the result window.
+        selectionRect: {
+          x: window.screenX + rect.left,
+          y: window.screenY + rect.top,
+          width: rect.width,
+          height: rect.height
+        }
+      });
+    } catch (error) {
+      console.error("submitCapture failed", error);
+      await cancelCaptureSafely();
+    }
   }
 
   useEffect(() => {
@@ -145,7 +158,7 @@ export function CaptureOverlay({ displayId }: { displayId: number }) {
         setDragEnd(null);
 
         if (nextRect.width < 12 || nextRect.height < 12) {
-          await window.shotTranslate.cancelCapture();
+          await cancelCaptureSafely();
           return;
         }
 

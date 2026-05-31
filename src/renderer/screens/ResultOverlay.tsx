@@ -11,6 +11,7 @@ import {
 import type { HistoryItem } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatActionError } from "@/lib/errors";
 
 function isBusyStatus(status: HistoryItem["status"]) {
   return status === "ocr_processing" || status === "translating" || status === "pending";
@@ -52,11 +53,16 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
   const [dragging, setDragging] = useState(false);
   const dragStateRef = useRef<{ pointerId: number; screenX: number; screenY: number } | null>(null);
 
-  async function refresh() {
-    const next = await window.shotTranslate.getHistoryItem(historyId);
-    setItem(next);
-    if (next) {
-      setSourceDraft((current) => current || next.sourceText);
+  async function refresh(): Promise<void> {
+    try {
+      const next = await window.shotTranslate.getHistoryItem(historyId);
+      setItem(next);
+      if (next) {
+        setSourceDraft((current) => current || next.sourceText);
+      }
+    } catch (error) {
+      console.error("[ResultOverlay] Failed to load translation result", error);
+      setMessage(formatActionError("加载结果失败", error));
     }
   }
 
@@ -72,8 +78,8 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
 
   if (!item) {
     return (
-      <div className="grid h-full place-items-center bg-transparent text-sm text-muted-foreground">
-        正在加载...
+      <div className="grid h-full place-items-center bg-transparent px-4 text-center text-sm text-muted-foreground">
+        {message || "正在加载..."}
       </div>
     );
   }
@@ -116,7 +122,9 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
       screenX: event.screenX,
       screenY: event.screenY
     };
-    void window.shotTranslate.moveResultWindow({ deltaX, deltaY });
+    void window.shotTranslate.moveResultWindow({ deltaX, deltaY }).catch((error: unknown) => {
+      console.error("[ResultOverlay] Failed to move result window", error);
+    });
   }
 
   function stopDrag(event: PointerEvent<HTMLElement>) {
@@ -130,6 +138,37 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
     }
     dragStateRef.current = null;
     setDragging(false);
+  }
+
+  async function closeResultWindow(): Promise<void> {
+    try {
+      await window.shotTranslate.closeResultWindow();
+    } catch (error) {
+      console.error("[ResultOverlay] Failed to close result window", error);
+      setMessage(formatActionError("关闭窗口失败", error));
+    }
+  }
+
+  async function retryTranslation(sourceText: string): Promise<void> {
+    try {
+      const next = await window.shotTranslate.retryHistoryItem(historyId, sourceText);
+      setItem(next);
+      setEditingSource(false);
+      setMessage(next ? "已重新提交翻译。" : "重新翻译失败。");
+    } catch (error) {
+      console.error("[ResultOverlay] Failed to retry translation", error);
+      setMessage(formatActionError("重新翻译失败", error));
+    }
+  }
+
+  async function copyText(text: string, successMessage: string): Promise<void> {
+    try {
+      await window.shotTranslate.writeClipboardText(text);
+      setMessage(successMessage);
+    } catch (error) {
+      console.error("[ResultOverlay] Failed to copy text", error);
+      setMessage(formatActionError("复制失败", error));
+    }
   }
 
   return (
@@ -176,7 +215,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
             size="icon"
             className="size-7"
             onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => window.shotTranslate.closeResultWindow()}
+            onClick={() => void closeResultWindow()}
             aria-label="关闭"
           >
             <IconX className="size-4" />
@@ -260,12 +299,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
               <Button
                 size="sm"
                 disabled={!canRetry}
-                onClick={async () => {
-                  const next = await window.shotTranslate.retryHistoryItem(historyId, sourceDraft);
-                  setItem(next);
-                  setEditingSource(false);
-                  setMessage(next ? "已重新提交翻译。" : "重新翻译失败。");
-                }}
+                onClick={() => void retryTranslation(sourceDraft)}
               >
                 <IconRefresh className="size-3.5" />
                 重新翻译
@@ -277,10 +311,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                 variant="outline"
                 size="sm"
                 disabled={!hasSource}
-                onClick={async () => {
-                  await window.shotTranslate.writeClipboardText(item.sourceText || sourceDraft);
-                  setMessage("已复制原文。");
-                }}
+                onClick={() => void copyText(item.sourceText || sourceDraft, "已复制原文。")}
               >
                 <IconClipboard className="size-3.5" />
                 复制原文
@@ -290,11 +321,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
                   variant="outline"
                   size="sm"
                   disabled={!canRetry}
-                  onClick={async () => {
-                    const next = await window.shotTranslate.retryHistoryItem(historyId, sourceDraft || item.sourceText);
-                    setItem(next);
-                    setMessage(next ? "已重新提交翻译。" : "重新翻译失败。");
-                  }}
+                  onClick={() => void retryTranslation(sourceDraft || item.sourceText)}
                 >
                   <IconRefresh className="size-3.5" />
                   重新翻译
@@ -303,10 +330,7 @@ export function ResultOverlay({ historyId }: { historyId: string }) {
               <Button
                 size="sm"
                 disabled={!item.translatedText || isBusy}
-                onClick={async () => {
-                  await window.shotTranslate.writeClipboardText(item.translatedText);
-                  setMessage("已复制译文。");
-                }}
+                onClick={() => void copyText(item.translatedText, "已复制译文。")}
               >
                 <IconClipboard className="size-3.5" />
                 复制译文

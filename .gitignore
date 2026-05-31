@@ -30,9 +30,7 @@ Thumbs.db
 .env.*.local
 
 # Local tooling / agent workspace state
-.agents/
 .claude/
-.codex/
 .trellis/.backup-*/
 .trellis/worktrees/
 .trellis/.template-hashes.json

@@ -20,10 +20,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     const stack = `${error.stack ?? ""}\n\nComponent stack:${info.componentStack ?? ""}`;
-    void window.shotTranslate?.reportRendererError({
-      message: error.message,
-      stack
-    });
+    void window.shotTranslate
+      ?.reportRendererError({
+        message: error.message,
+        stack
+      })
+      .catch((reportError: unknown) => {
+        console.error("Failed to report renderer boundary error", reportError);
+      });
   }
 
   private handleReload = () => {
